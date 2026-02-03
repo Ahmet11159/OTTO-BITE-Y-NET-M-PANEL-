@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  password      String
+  role          String   // "ADMIN", "CHEF"
+  department    String?
+  fullName      String
+  reports       Report[]
+  reviewedReports Report[] @relation("ReportReviewer")
+  stockTransactions StockTransaction[]
+  lostItems     LostItem[]
+  cashExpenses  CashExpense[]
+}
+
+model Report {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  shiftType       String   // "Morning", "Evening"
+  department      String
+  personnelStatus String
+  operationalNotes String
+  technicalIssues String?
+  closingChecklist Boolean @default(false)
+  managerNote     String?
+  isReviewed      Boolean  @default(false)
+  authorId        Int
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedById    Int?
+  reviewer        User?    @relation("ReportReviewer", fields: [reviewedById], references: [id])
+}
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  name         String
+  unit         String   // "kg", "lt", "adet", "kasa"
+  category     String?  // "Gıda", "İçecek", "Temizlik"
+  startStock   Float    // Stock at month start
+  currentStock Float    @default(0)
+  lastReset    DateTime @default(now())
+  
+  transactions StockTransaction[]
+}
+
+model StockTransaction {
+  id        Int      @id @default(autoincrement())
+  type      String   // "IN", "OUT", "RESET"
+  amount    Float
+  createdAt DateTime @default(now())
+  
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model InventoryLog {
+  id          Int      @id @default(autoincrement())
+  actionType  String   // "CREATE", "UPDATE", "DELETE", "STOCK_IN", "STOCK_OUT"
+  productName String
+  details     String
+  userName    String   // Store name to persist if user is deleted
+  userId      Int
+  createdAt   DateTime @default(now())
+}
+
+model StockReport {
+  id        Int      @id @default(autoincrement())
+  period    String   // e.g., "Ocak 2024"
+  data      String   // JSON snapshot
+  createdAt DateTime @default(now())
+}
+
+model InventoryCountSchedule {
+  id           Int      @id @default(autoincrement())
+  isEnabled    Boolean  @default(false)
+  scheduleType String   // "LAST_DAY" | "DAY_OF_MONTH"
+  dayOfMonth   Int?
+  timeOfDay    String   // "HH:MM"
+  lastRunAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+model Unit {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+model Order {
+  id        Int         @id @default(autoincrement())
+  title     String
+  status    String      @default("PENDING") // "PENDING", "PARTIAL", "COMPLETED"
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id             Int      @id @default(autoincrement())
+  productName    String
+  quantity       Float
+  unit           String
+  receivedQuantity Float?
+  isReceived     Boolean  @default(false)
+  isAddedToStock Boolean  @default(false)
+  receivedAt     DateTime?
+  productId      Int?     // Optional link to existing inventory product
+  orderId        Int
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderNotification {
+  id        Int      @id @default(autoincrement())
+  type      String   // "ITEM_RECEIVED", "ORDER_CREATED"
+  content   String
+  userName  String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Kayıp Eşya Modülü
+model LostItem {
+  id              Int       @id @default(autoincrement())
+  
+  // Eşya Bilgileri
+  itemName        String    // Ne kayboldu?
+  itemDescription String?   // Detaylı açıklama
+  itemCategory    String    // Elektronik, Giyim, Aksesuar, Değerli, Diğer
+  
+  // Müşteri Bilgileri (opsiyonel)
+  customerName    String?
+  customerPhone   String?
+  customerEmail   String?
+  
+  // Konum ve Zaman Bilgileri
+  tableNumber     String?   // Masa numarası
+  foundLocation   String?   // Bulunduğu yer
+  sittingTime     DateTime? // Müşterinin oturma saati (Başlangıç)
+  sittingEndTime  DateTime? // Müşterinin oturma saati (Bitiş)
+  foundAt         DateTime  @default(now()) // Bulunma tarihi
+  
+  // Durum Takibi
+  status          String    @default("FOUND") // FOUND, CLAIMED, RETURNED, DISPOSED
+  returnedAt      DateTime? // Teslim edilme tarihi
+  returnedTo      String?   // Teslim alan kişi adı
+  
+  // Fotoğraf
+  photoUrl        String?
+  
+  // Notlar
+  notes           String?
+  
+  // Sistem Bilgileri
+  reportedById    Int
+  reportedBy      User      @relation(fields: [reportedById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Nakit Çıkış Modülü
+model CashExpense {
+  id            Int       @id @default(autoincrement())
+  date          DateTime  @default(now())
+  category      String
+  description   String
+  amount        Float
+  paymentMethod String    @default("CASH")
+  receiptNumber String?
+  createdById   Int
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model CashExpenseCategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+// Ekipman Bakım ve Kalibrasyon Modülü
+model Equipment {
+  id             Int      @id @default(autoincrement())
+  name           String
+  serial         String?
+  location       String?
+  vendor         String?
+  commissionedAt DateTime?
+  status         String?   // ACTIVE, INACTIVE
+  defaultCycleDays Int?
+  plans          MaintenancePlan[]
+  records        MaintenanceRecord[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model MaintenancePlan {
+  id               Int       @id @default(autoincrement())
+  equipmentId      Int
+  equipment        Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  title            String
+  firm             String?
+  description      String?
+  startDate        DateTime   @default(now())
+  cycleDays        Int?
+  notifyThresholds String?
+  nextDueDate      DateTime?
+  status           String     @default("ACTIVE") // ACTIVE, PAUSED, CANCELLED
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  records          MaintenanceRecord[]
+}
+
+model MaintenanceRecord {
+  id           Int       @id @default(autoincrement())
+  equipmentId  Int
+  equipment    Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  planId       Int?
+  plan         MaintenancePlan? @relation(fields: [planId], references: [id])
+  date         DateTime  @default(now())
+  description  String?
+  firm         String?
+  prevNextDueDate DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model MaintenanceAlert {
+  id          Int      @id @default(autoincrement())
+  content     String
+  equipmentId Int?
+  planId      Int?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}

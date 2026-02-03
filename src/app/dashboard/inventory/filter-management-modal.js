@@ -1,0 +1,251 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { getFilterOptions, addCategory, addUnit, deleteCategory, deleteUnit } from '@/app/actions/inventory'
+
+export default function FilterManagementModal({ onClose, onUpdate }) {
+    const [options, setOptions] = useState({ categories: [], units: [] })
+    const [newCategory, setNewCategory] = useState('')
+    const [newUnit, setNewUnit] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [confirmingId, setConfirmingId] = useState(null)
+
+    useEffect(() => {
+        fetchOptions()
+    }, [])
+
+    const fetchOptions = async () => {
+        const res = await getFilterOptions()
+        if (res.success) setOptions(res.data)
+    }
+
+    const handleAddCategory = async (e) => {
+        e.preventDefault()
+        if (!newCategory.trim()) return
+        setIsLoading(true)
+        setError('')
+        try {
+            const res = await addCategory({ name: newCategory.trim() })
+            if (res.success) {
+                setNewCategory('')
+                await fetchOptions()
+                onUpdate()
+            } else {
+                setError(res.error)
+            }
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleAddUnit = async (e) => {
+        e.preventDefault()
+        if (!newUnit.trim()) return
+        setIsLoading(true)
+        setError('')
+        try {
+            const res = await addUnit({ name: newUnit.trim() })
+            if (res.success) {
+                setNewUnit('')
+                await fetchOptions()
+                onUpdate()
+            } else {
+                setError(res.error)
+            }
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleDeleteCategory = async (id) => {
+        setIsLoading(true)
+        setError('')
+        try {
+            await deleteCategory(id)
+            setConfirmingId(null)
+            await fetchOptions()
+            onUpdate()
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleDeleteUnit = async (id) => {
+        setIsLoading(true)
+        setError('')
+        try {
+            const res = await deleteUnit({ id })
+            if (res.success) {
+                setConfirmingId(null)
+                await fetchOptions()
+                onUpdate()
+            } else {
+                setError(res.error)
+            }
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-zinc-900 border border-gray-800 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-black/20">
+                    <h2 className="text-xl font-bold text-gold flex items-center gap-2">
+                        <span>⚙️</span> Filtre Yönetimi
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-2xl">&times;</button>
+                </div>
+
+                <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto">
+                    {error && (
+                        <div className="bg-red-900/20 border border-red-900/50 text-red-500 p-3 rounded-lg text-sm mb-4 animate-shake">
+                            ⚠️ {error}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Categories Section */}
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b border-gray-800 pb-2">
+                                📁 Kategoriler
+                            </h3>
+
+                            <form onSubmit={handleAddCategory} className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newCategory}
+                                    onChange={(e) => setNewCategory(e.target.value)}
+                                    placeholder="Yeni kategori..."
+                                    className="flex-1 bg-black border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
+                                    disabled={isLoading}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || !newCategory.trim()}
+                                    className="bg-gold text-black px-3 py-2 rounded-lg font-bold text-xs hover:bg-yellow-400 disabled:opacity-50 transition-all"
+                                >
+                                    Ekle
+                                </button>
+                            </form>
+
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {options.categories.length > 0 ? (
+                                    options.categories.map(cat => (
+                                        <div key={cat.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-gray-800 hover:border-gold/30 hover:bg-zinc-800/60 transition-all group">
+                                            {confirmingId === cat.id ? (
+                                                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-right-2 duration-200">
+                                                    <span className="text-xs font-bold text-red-500 flex-1">Emin misiniz?</span>
+                                                    <button
+                                                        onClick={() => handleDeleteCategory(cat.id)}
+                                                        className="bg-red-600 text-white text-[10px] px-2 py-1 rounded hover:bg-red-500 font-bold"
+                                                    >SİL</button>
+                                                    <button
+                                                        onClick={() => setConfirmingId(null)}
+                                                        className="bg-zinc-700 text-white text-[10px] px-2 py-1 rounded hover:bg-zinc-600 font-bold"
+                                                    >İPTAL</button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span className="text-white text-sm font-medium">{cat.name}</span>
+                                                    <button
+                                                        onClick={() => setConfirmingId(cat.id)}
+                                                        className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
+                                                        title="Sil"
+                                                    >
+                                                        <span className="text-lg">🗑️</span>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500 text-xs italic bg-black/20 rounded-lg border border-dashed border-gray-800">
+                                        Kategori bulunamadı.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Units Section */}
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b border-gray-800 pb-2">
+                                ⚖️ Birimler
+                            </h3>
+
+                            <form onSubmit={handleAddUnit} className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newUnit}
+                                    onChange={(e) => setNewUnit(e.target.value)}
+                                    placeholder="Yeni birim..."
+                                    className="flex-1 bg-black border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
+                                    disabled={isLoading}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || !newUnit.trim()}
+                                    className="bg-gold text-black px-3 py-2 rounded-lg font-bold text-xs hover:bg-yellow-400 disabled:opacity-50 transition-all"
+                                >
+                                    Ekle
+                                </button>
+                            </form>
+
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {options.units.length > 0 ? (
+                                    options.units.map(unit => (
+                                        <div key={unit.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-gray-800 hover:border-gold/30 hover:bg-zinc-800/60 transition-all group">
+                                            {confirmingId === unit.id ? (
+                                                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-right-2 duration-200">
+                                                    <span className="text-xs font-bold text-red-500 flex-1">Emin misiniz?</span>
+                                                    <button
+                                                        onClick={() => handleDeleteUnit(unit.id)}
+                                                        className="bg-red-600 text-white text-[10px] px-2 py-1 rounded hover:bg-red-500 font-bold"
+                                                    >SİL</button>
+                                                    <button
+                                                        onClick={() => setConfirmingId(null)}
+                                                        className="bg-zinc-700 text-white text-[10px] px-2 py-1 rounded hover:bg-zinc-600 font-bold"
+                                                    >İPTAL</button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span className="text-white text-sm font-medium">{unit.name}</span>
+                                                    <button
+                                                        onClick={() => setConfirmingId(unit.id)}
+                                                        className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
+                                                        title="Sil"
+                                                    >
+                                                        <span className="text-lg">🗑️</span>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500 text-xs italic bg-black/20 rounded-lg border border-dashed border-gray-800">
+                                        Birim bulunamadı.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-black/40 border-t border-gray-800 text-center">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+                        Kategorileri ve birimleri buradan yönetebilirsiniz. Kullanılmayanları silebilir, yenilerini ekleyebilirsiniz.
+                    </p>
+                </div>
+            </div>
+        </div>
+    )
+}

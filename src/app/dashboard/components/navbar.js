@@ -11,12 +11,12 @@ export default function Navbar({ user, notificationElement }) {
 
   const links = [
     { href: '/dashboard', label: 'Ana Sayfa' },
-    { href: '/dashboard/reports', label: 'Raporlar' },
+    { href: user?.role === 'ADMIN' ? '/dashboard/reports/manager' : '/dashboard/reports/chef', label: 'Raporlar' },
     { href: '/dashboard/inventory', label: 'Depo' },
     { href: '/dashboard/orders', label: 'Siparişler' },
     { href: '/dashboard/bakim', label: 'Bakım' },
     { href: '/dashboard/lost-found', label: 'Kayıp Eşya' },
-    { href: '/dashboard/finance', label: 'Finans' },
+    { href: '/dashboard/finance/cash-expenses', label: 'Finans' },
   ]
 
   const isActive = (path) => {
@@ -59,7 +59,7 @@ export default function Navbar({ user, notificationElement }) {
             {notificationElement}
 
             {/* Mobile Menu Button */}
-            <button 
+            <button
               className="lg:hidden p-2 text-gray-400 hover:text-white"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >

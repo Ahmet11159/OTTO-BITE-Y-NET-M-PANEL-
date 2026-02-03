@@ -79,7 +79,7 @@ export default function LoginPage() {
                         style={{ width: '100%', marginTop: '1rem' }}
                         disabled={loading}
                     >
-                        {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+                        {loading ? 'Yönlendiriliyor...' : 'Panele Gir'}
                     </button>
                 </form>
             </div>

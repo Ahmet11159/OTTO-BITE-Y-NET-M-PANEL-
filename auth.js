@@ -65,8 +65,8 @@ export const login = safeAction(async (data) => {
     })
 
     // Return redirect URL instead of redirecting directly
-    // This prevents "Error" glitch on client side due to NEXT_REDIRECT handling
-    const redirectUrl = user.role === 'ADMIN' ? '/dashboard/reports/manager' : '/dashboard/reports/chef'
+    // Always redirect to the main hub (/dashboard)
+    const redirectUrl = '/dashboard'
     return { redirectUrl }
 }, LoginSchema)
 

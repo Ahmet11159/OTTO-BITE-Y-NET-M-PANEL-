@@ -4,6 +4,7 @@ import { safeAction } from '@/lib/safe-action'
 import { getSession } from '@/lib/auth'
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 const SettingsSchema = z.object({
   general: z.object({
@@ -42,25 +43,35 @@ function applyEnvOverrides(settings) {
 }
 
 export const getSettings = safeAction(async () => {
-  const row = await prisma.appSettings.findFirst()
   const defaults = {
     general: { locale: 'tr-TR' },
     orders: { minQty: 1, maxQty: 250000 },
     reports: { minTextLength: 5 },
     notifications: { pollIntervalMs: 10000 }
   }
-  const parsed = SettingsSchema.partial().parse(row?.data ?? defaults)
-  return applyEnvOverrides(parsed)
+  try {
+    const row = await prisma.appSettings?.findFirst?.()
+    const parsed = SettingsSchema.partial().parse(row?.data ?? defaults)
+    return applyEnvOverrides(parsed)
+  } catch (e) {
+    logger.error('getSettings failed', { error: e?.message })
+    return defaults
+  }
 })
 
 export const updateSettings = safeAction(async (data) => {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
-  const currentRow = await prisma.appSettings.findFirst()
-  const currentData = SettingsSchema.partial().parse(currentRow?.data ?? {})
-  const payload = SettingsSchema.partial().parse({ ...currentData, ...data })
-  const saved = currentRow
-    ? await prisma.appSettings.update({ where: { id: currentRow.id }, data: { data: payload } })
-    : await prisma.appSettings.create({ data: { data: payload } })
-  return saved.data
+  try {
+    const currentRow = await prisma.appSettings?.findFirst?.()
+    const currentData = SettingsSchema.partial().parse(currentRow?.data ?? {})
+    const payload = SettingsSchema.partial().parse({ ...currentData, ...data })
+    const saved = currentRow
+      ? await prisma.appSettings.update({ where: { id: currentRow.id }, data: { data: payload } })
+      : await prisma.appSettings.create({ data: { data: payload } })
+    return saved.data
+  } catch (e) {
+    logger.error('updateSettings failed', { error: e?.message })
+    throw new Error('Ayarlar kaydedilemedi')
+  }
 }, SettingsSchema.partial())

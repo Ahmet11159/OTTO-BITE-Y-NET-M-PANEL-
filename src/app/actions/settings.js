@@ -3,10 +3,7 @@
 import { safeAction } from '@/lib/safe-action'
 import { getSession } from '@/lib/auth'
 import { z } from 'zod'
-import fs from 'fs'
-import path from 'path'
-
-const SETTINGS_PATH = path.join(process.cwd(), 'data', 'app-settings.json')
+import prisma from '@/lib/prisma'
 
 const SettingsSchema = z.object({
   general: z.object({
@@ -28,43 +25,42 @@ const SettingsSchema = z.object({
   }).optional(),
 })
 
-function ensureFile() {
-  const dir = path.dirname(SETTINGS_PATH)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  if (!fs.existsSync(SETTINGS_PATH)) {
-    fs.writeFileSync(
-      SETTINGS_PATH,
-      JSON.stringify(
-        {
-          general: { locale: 'tr-TR' },
-          orders: { minQty: 1, maxQty: 250000 },
-          reports: { minTextLength: 5 },
-          notifications: { pollIntervalMs: 10000 },
-        },
-        null,
-        2
-      )
-    )
+function applyEnvOverrides(settings) {
+  const envMin = Number(process.env.NEXT_PUBLIC_ORDER_MIN_QTY)
+  const envMax = Number(process.env.NEXT_PUBLIC_ORDER_MAX_QTY)
+  const hasEnv = Number.isFinite(envMin) || Number.isFinite(envMax)
+  if (!hasEnv) return settings
+  const baseMin = settings?.orders?.minQty ?? 1
+  const baseMax = settings?.orders?.maxQty ?? 250000
+  return {
+    ...settings,
+    orders: {
+      minQty: Number.isFinite(envMin) ? envMin : baseMin,
+      maxQty: Number.isFinite(envMax) ? envMax : baseMax
+    }
   }
 }
 
 export const getSettings = safeAction(async () => {
-  ensureFile()
-  const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8')
-  try {
-    const parsed = JSON.parse(raw)
-    return SettingsSchema.partial().parse(parsed)
-  } catch {
-    return { orders: { minQty: 1, maxQty: 250000 } }
+  const row = await prisma.appSettings.findFirst()
+  const defaults = {
+    general: { locale: 'tr-TR' },
+    orders: { minQty: 1, maxQty: 250000 },
+    reports: { minTextLength: 5 },
+    notifications: { pollIntervalMs: 10000 }
   }
+  const parsed = SettingsSchema.partial().parse(row?.data ?? defaults)
+  return applyEnvOverrides(parsed)
 })
 
 export const updateSettings = safeAction(async (data) => {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
-  ensureFile()
-  const current = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
-  const payload = SettingsSchema.partial().parse({ ...current, ...data })
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(payload, null, 2))
-  return payload
+  const currentRow = await prisma.appSettings.findFirst()
+  const currentData = SettingsSchema.partial().parse(currentRow?.data ?? {})
+  const payload = SettingsSchema.partial().parse({ ...currentData, ...data })
+  const saved = currentRow
+    ? await prisma.appSettings.update({ where: { id: currentRow.id }, data: { data: payload } })
+    : await prisma.appSettings.create({ data: { data: payload } })
+  return saved.data
 }, SettingsSchema.partial())

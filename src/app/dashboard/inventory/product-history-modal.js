@@ -2,14 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { getProductHistory } from '@/app/actions/inventory'
+import { getSettings } from '@/app/actions/settings'
 
 export default function ProductHistoryModal({ product, onClose }) {
     const [history, setHistory] = useState([])
     const [isLoading, setIsLoading] = useState(true)
+    const [locale, setLocale] = useState('tr-TR')
 
     useEffect(() => {
         if (!product?.id) return
-
+        getSettings().then(res => {
+            if (res.success && res.data?.general?.locale) {
+                setLocale(String(res.data.general.locale))
+            }
+        }).catch(() => {})
         getProductHistory({ id: product.id })
             .then(res => {
                 if (res.success) {
@@ -84,7 +90,7 @@ export default function ProductHistoryModal({ product, onClose }) {
                                             <div className="flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-wide font-medium">
                                                 <span>{item.user}</span>
                                                 <span className="w-0.5 h-0.5 bg-gray-600 rounded-full"></span>
-                                                <span>{new Date(item.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                                <span>{new Date(item.date).toLocaleDateString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                         </div>
                                     </div>

@@ -5,11 +5,14 @@ import { getSession } from '@/lib/auth'
 import ReportCard from '../manager/report-card'
 import ChefStats from './stats'
 import ChefFilterBar from './filter-bar'
+import { getSettings } from '@/app/actions/settings'
 
 export default async function ChefDashboard({ searchParams }) {
     const session = await getSession()
     if (!session) redirect('/login')
     if (session.role === 'ADMIN') redirect('/dashboard/reports/manager')
+    const settingsRes = await getSettings()
+    const locale = settingsRes.success && settingsRes.data?.general?.locale ? String(settingsRes.data.general.locale) : 'tr-TR'
     const res = await getMyReports({
         shiftType: searchParams?.shiftType,
         startDate: searchParams?.startDate,
@@ -20,7 +23,7 @@ export default async function ChefDashboard({ searchParams }) {
     // Group reports by Month and Year
     const groupedReports = reports.reduce((groups, report) => {
         const date = new Date(report.createdAt);
-        const key = date.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+        const key = date.toLocaleString(locale, { month: 'long', year: 'numeric' });
 
         if (!groups[key]) {
             groups[key] = [];
@@ -39,7 +42,7 @@ export default async function ChefDashboard({ searchParams }) {
 
     reports.forEach(report => {
         const date = new Date(report.createdAt);
-        const key = date.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+        const key = date.toLocaleString(locale, { month: 'long', year: 'numeric' });
 
         if (!seenRequestKeys.has(key)) {
             seenRequestKeys.add(key);
@@ -61,7 +64,7 @@ export default async function ChefDashboard({ searchParams }) {
                 </Link>
             </div>
 
-            <ChefStats reports={reports} />
+            <ChefStats reports={reports} locale={locale} />
 
             <ChefFilterBar />
 

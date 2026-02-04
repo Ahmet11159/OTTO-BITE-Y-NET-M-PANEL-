@@ -12,9 +12,9 @@
 
 .card {
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
     background: rgba(17, 17, 17, 0.95);
-    padding: 3rem 2.5rem;
+    padding: 3rem 2.25rem;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
@@ -27,7 +27,7 @@
 }
 
 .title {
-    font-size: 2.5rem;
+    font-size: 2.25rem;
     font-weight: 800;
     letter-spacing: 0.15em;
     color: white;
@@ -60,11 +60,25 @@
 
 @media (max-width: 480px) {
     .card {
-        padding: 2rem 1.5rem;
-        max-width: 90%;
+        padding: 1.75rem 1.25rem;
+        max-width: 92%;
     }
 
     .title {
-        font-size: 2rem;
+        font-size: 1.8rem;
+    }
+    
+    .subtitle {
+        font-size: 0.75rem;
+        letter-spacing: 0.25em;
+    }
+}
+
+@media (min-width: 1440px) {
+    .container {
+        padding-top: 4vh;
+    }
+    .card {
+        max-width: 500px;
     }
 }

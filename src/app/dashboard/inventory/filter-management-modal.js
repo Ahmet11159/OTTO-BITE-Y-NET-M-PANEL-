@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { getFilterOptions, addCategory, addUnit, deleteCategory, deleteUnit } from '@/app/actions/inventory'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
 
 export default function FilterManagementModal({ onClose, onUpdate }) {
     const [options, setOptions] = useState({ categories: [], units: [] })
@@ -9,7 +11,8 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
     const [newUnit, setNewUnit] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
-    const [confirmingId, setConfirmingId] = useState(null)
+    const { addToast } = useToast()
+    const [confirmDelete, setConfirmDelete] = useState({ open: false, type: null, id: null, name: '' })
 
     useEffect(() => {
         fetchOptions()
@@ -31,10 +34,13 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                 setNewCategory('')
                 await fetchOptions()
                 onUpdate()
+                addToast('Kategori eklendi', 'success')
             } else {
+                addToast(res.error || 'Kategori eklenemedi', 'error')
                 setError(res.error)
             }
         } catch (err) {
+            addToast(err.message || 'Kategori eklenemedi', 'error')
             setError(err.message)
         } finally {
             setIsLoading(false)
@@ -52,10 +58,13 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                 setNewUnit('')
                 await fetchOptions()
                 onUpdate()
+                addToast('Birim eklendi', 'success')
             } else {
+                addToast(res.error || 'Birim eklenemedi', 'error')
                 setError(res.error)
             }
         } catch (err) {
+            addToast(err.message || 'Birim eklenemedi', 'error')
             setError(err.message)
         } finally {
             setIsLoading(false)
@@ -66,11 +75,13 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
         setIsLoading(true)
         setError('')
         try {
-            await deleteCategory(id)
-            setConfirmingId(null)
+            const res = await deleteCategory({ id })
+            if (res?.success === false) throw new Error(res.error)
             await fetchOptions()
             onUpdate()
+            addToast('Kategori silindi', 'success')
         } catch (err) {
+            addToast(err.message || 'Kategori silinemedi', 'error')
             setError(err.message)
         } finally {
             setIsLoading(false)
@@ -83,13 +94,15 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
         try {
             const res = await deleteUnit({ id })
             if (res.success) {
-                setConfirmingId(null)
                 await fetchOptions()
                 onUpdate()
+                addToast('Birim silindi', 'success')
             } else {
+                addToast(res.error || 'Birim silinemedi', 'error')
                 setError(res.error)
             }
         } catch (err) {
+            addToast(err.message || 'Birim silinemedi', 'error')
             setError(err.message)
         } finally {
             setIsLoading(false)
@@ -142,30 +155,16 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                 {options.categories.length > 0 ? (
                                     options.categories.map(cat => (
                                         <div key={cat.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-gray-800 hover:border-gold/30 hover:bg-zinc-800/60 transition-all group">
-                                            {confirmingId === cat.id ? (
-                                                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-right-2 duration-200">
-                                                    <span className="text-xs font-bold text-red-500 flex-1">Emin misiniz?</span>
-                                                    <button
-                                                        onClick={() => handleDeleteCategory(cat.id)}
-                                                        className="bg-red-600 text-white text-[10px] px-2 py-1 rounded hover:bg-red-500 font-bold"
-                                                    >SİL</button>
-                                                    <button
-                                                        onClick={() => setConfirmingId(null)}
-                                                        className="bg-zinc-700 text-white text-[10px] px-2 py-1 rounded hover:bg-zinc-600 font-bold"
-                                                    >İPTAL</button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <span className="text-white text-sm font-medium">{cat.name}</span>
-                                                    <button
-                                                        onClick={() => setConfirmingId(cat.id)}
-                                                        className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
-                                                        title="Sil"
-                                                    >
-                                                        <span className="text-lg">🗑️</span>
-                                                    </button>
-                                                </>
-                                            )}
+                                            <>
+                                                <span className="text-white text-sm font-medium">{cat.name}</span>
+                                                <button
+                                                    onClick={() => setConfirmDelete({ open: true, type: 'category', id: cat.id, name: cat.name })}
+                                                    className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
+                                                    title="Sil"
+                                                >
+                                                    <span className="text-lg">🗑️</span>
+                                                </button>
+                                            </>
                                         </div>
                                     ))
                                 ) : (
@@ -204,30 +203,16 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                 {options.units.length > 0 ? (
                                     options.units.map(unit => (
                                         <div key={unit.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-gray-800 hover:border-gold/30 hover:bg-zinc-800/60 transition-all group">
-                                            {confirmingId === unit.id ? (
-                                                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-right-2 duration-200">
-                                                    <span className="text-xs font-bold text-red-500 flex-1">Emin misiniz?</span>
-                                                    <button
-                                                        onClick={() => handleDeleteUnit(unit.id)}
-                                                        className="bg-red-600 text-white text-[10px] px-2 py-1 rounded hover:bg-red-500 font-bold"
-                                                    >SİL</button>
-                                                    <button
-                                                        onClick={() => setConfirmingId(null)}
-                                                        className="bg-zinc-700 text-white text-[10px] px-2 py-1 rounded hover:bg-zinc-600 font-bold"
-                                                    >İPTAL</button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <span className="text-white text-sm font-medium">{unit.name}</span>
-                                                    <button
-                                                        onClick={() => setConfirmingId(unit.id)}
-                                                        className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
-                                                        title="Sil"
-                                                    >
-                                                        <span className="text-lg">🗑️</span>
-                                                    </button>
-                                                </>
-                                            )}
+                                            <>
+                                                <span className="text-white text-sm font-medium">{unit.name}</span>
+                                                <button
+                                                    onClick={() => setConfirmDelete({ open: true, type: 'unit', id: unit.id, name: unit.name })}
+                                                    className="w-10 h-10 rounded-full bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-red-900/30 shadow-lg"
+                                                    title="Sil"
+                                                >
+                                                    <span className="text-lg">🗑️</span>
+                                                </button>
+                                            </>
                                         </div>
                                     ))
                                 ) : (
@@ -246,6 +231,19 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                     </p>
                 </div>
             </div>
+            <ConfirmModal
+                open={confirmDelete.open}
+                title={confirmDelete.type === 'category' ? 'Kategori Sil' : 'Birim Sil'}
+                message={`"${confirmDelete.name}" ${confirmDelete.type === 'category' ? 'kategorisini' : 'birimini'} silmek istiyor musunuz?`}
+                confirmText="Sil"
+                cancelText="Vazgeç"
+                onConfirm={async () => {
+                    if (confirmDelete.type === 'category') await handleDeleteCategory(confirmDelete.id)
+                    else await handleDeleteUnit(confirmDelete.id)
+                    setConfirmDelete({ open: false, type: null, id: null, name: '' })
+                }}
+                onCancel={() => setConfirmDelete({ open: false, type: null, id: null, name: '' })}
+            />
         </div>
     )
 }

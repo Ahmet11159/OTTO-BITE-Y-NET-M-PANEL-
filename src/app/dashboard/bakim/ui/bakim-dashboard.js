@@ -1,13 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createEquipment, updateEquipment, deleteEquipment, createPlan, updatePlan, deletePlan, createRecord, revertLastRecord } from '@/app/actions/bakim'
+import { getSettings } from '@/app/actions/settings'
 
 export default function BakimDashboard({ initialEquipment, initialPlans, initialRecords }) {
   const [activeTab, setActiveTab] = useState('equipment')
   const [equipment, setEquipment] = useState(initialEquipment || [])
   const [plans, setPlans] = useState(initialPlans || [])
   const [records, setRecords] = useState(initialRecords || [])
+  const [locale, setLocale] = useState('tr-TR')
+
+  useEffect(() => {
+    getSettings().then(res => {
+      if (res.success && res.data?.general?.locale) {
+        setLocale(String(res.data.general.locale))
+      }
+    }).catch(() => {})
+  }, [])
 
   // Modals
   const [showNewEq, setShowNewEq] = useState(false)
@@ -294,7 +304,7 @@ export default function BakimDashboard({ initialEquipment, initialPlans, initial
                             <span>Firma: {p.firm || '-'}</span>
                             <span>•</span>
                             <span className={isDue ? 'text-rose-400 font-bold' : ''}>
-                              Hedef: {p.nextDueDate ? new Date(p.nextDueDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Belirsiz'}
+                              Hedef: {p.nextDueDate ? new Date(p.nextDueDate).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Belirsiz'}
                             </span>
                           </div>
                         </div>
@@ -364,7 +374,7 @@ export default function BakimDashboard({ initialEquipment, initialPlans, initial
                           <span className="text-sm text-gray-300">{r.plan?.title || 'Plansız Bakım'}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {new Date(r.date).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                          {new Date(r.date).toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                           {r.description && ` • ${r.description}`}
                         </p>
                       </div>

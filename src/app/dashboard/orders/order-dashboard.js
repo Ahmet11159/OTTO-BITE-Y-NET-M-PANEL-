@@ -1,14 +1,19 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { createOrder, toggleItemReceived, toggleInventorySync, deleteOrder, updateOrderTitle, updateOrderItem, addOrderItem, removeOrderItem } from '@/app/actions/orders'
+import { createOrder, toggleItemReceived, toggleInventorySync, deleteOrder } from '@/app/actions/orders'
+import { getSettings } from '@/app/actions/settings'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
+import { getOrderLimits } from '@/lib/app-config'
 
 export default function OrderDashboard({ initialOrders, initialUnfilled, user, inventoryProducts = [] }) {
     const [activeTab, setActiveTab] = useState('active')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
-    const [toast, setToast] = useState(null)
+    const [searchInput, setSearchInput] = useState('')
+    const { addToast } = useToast()
     const [expandedOrder, setExpandedOrder] = useState(null)
     const [editingOrder, setEditingOrder] = useState(null)
     const [editTitle, setEditTitle] = useState('')
@@ -18,6 +23,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     // Received Confirmation State
     const [confirmingItem, setConfirmingItem] = useState(null)
     const [receivedQuantityInput, setReceivedQuantityInput] = useState('')
+    const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null })
 
     const router = useRouter()
 
@@ -59,15 +65,47 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     useEffect(() => {
         if (!orderTitle && activeTab === 'create') {
             const today = new Date()
-            const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+            const dateStr = today.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
             setOrderTitle(dateStr)
         }
-    }, [activeTab])
+    }, [activeTab, locale])
 
-    const showToast = (message, type = 'error') => {
-        setToast({ message, type })
-        setTimeout(() => setToast(null), 4000)
+    const showToast = (message, type = 'error') => addToast(message, type)
+    const getStepForUnit = (unit) => {
+        const u = (unit || '').toLowerCase()
+        if (['kg', 'kilogram', 'litre', 'liter'].includes(u)) return 0.5
+        if (['adet', 'paket', 'koli', 'piece', 'box'].includes(u)) return 1
+        return 1
     }
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max)
+    const roundToStep = (v, step) => Math.round(v / step) * step
+    const [limits, setLimits] = useState(getOrderLimits())
+    const MIN_QTY = limits.min
+    const MAX_QTY = limits.max
+    const [locale, setLocale] = useState('tr-TR')
+    const fmt = (v) => {
+        const n = Number(v)
+        return Number.isFinite(n) ? n.toLocaleString(locale) : String(v)
+    }
+
+    useEffect(() => {
+        getSettings().then((res) => {
+            if (!res?.success) return
+            const o = res.data?.orders
+            if (!o) return
+            setLimits((prev) => ({
+                min: typeof o.minQty === 'number' ? o.minQty : prev.min,
+                max: typeof o.maxQty === 'number' ? o.maxQty : prev.max,
+            }))
+            const g = res.data?.general
+            if (g?.locale) setLocale(String(g.locale))
+        })
+    }, [])
+
+    useEffect(() => {
+        const id = setTimeout(() => setSearchQuery(searchInput), 200)
+        return () => clearTimeout(id)
+    }, [searchInput])
 
     // Calculate stats
     const stats = {
@@ -81,14 +119,20 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
 
     // Add product from inventory
     const handleAddProduct = () => {
-        if (!selectedProduct || !quantity) return
+        if (!selectedProduct) {
+        showToast('Önce ürünü seçin', 'error'); return
+        }
+        const q = parseFloat(quantity)
+        if (Number.isNaN(q)) { showToast('Geçerli bir miktar girin', 'error'); return }
+        if (q < MIN_QTY) { showToast(`Miktar en az ${MIN_QTY} olmalı`, 'error'); return }
+        if (q > MAX_QTY) { showToast(`Miktar ${MAX_QTY}’i aşamaz`, 'error'); return }
 
         // Check if product already exists in list
         const existingItem = orderItems.find(item => item.productId === selectedProduct.id)
         if (existingItem) {
             setOrderItems(orderItems.map(item =>
                 item.productId === selectedProduct.id
-                    ? { ...item, quantity: item.quantity + parseFloat(quantity) }
+                    ? { ...item, quantity: item.quantity + q }
                     : item
             ))
         } else {
@@ -104,20 +148,24 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
         }
 
         setSelectedProduct(null)
-        setProductSearch('')
-        setQuantity('')
+            setProductSearch('')
+            setQuantity('')
         showToast('Ürün listeye eklendi', 'success')
     }
 
     // Add custom product
     const handleAddCustomProduct = () => {
-        if (!customProduct.name || !customProduct.quantity) return
+        if (!customProduct.name || !customProduct.quantity) { showToast('Ürün adı ve miktar gerekli', 'error'); return }
+        const q = parseFloat(customProduct.quantity)
+        if (Number.isNaN(q)) { showToast('Geçerli miktar girin', 'error'); return }
+        if (q < MIN_QTY) { showToast(`Miktar en az ${MIN_QTY} olmalı`, 'error'); return }
+        if (q > MAX_QTY) { showToast(`Miktar ${MAX_QTY}’i aşamaz`, 'error'); return }
 
-        const newItem = {
+            const newItem = {
             id: Date.now(),
             productId: null,
             productName: customProduct.name,
-            quantity: parseFloat(customProduct.quantity),
+                quantity: q,
             unit: customProduct.unit,
             isCustom: true
         }
@@ -135,9 +183,14 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
 
     // Update item quantity
     const handleUpdateQuantity = (itemId, newQuantity) => {
-        if (newQuantity <= 0) {
-            handleRemoveItem(itemId)
-            return
+        if (Number.isNaN(newQuantity)) { showToast('Geçerli miktar girin', 'error'); return }
+        if (newQuantity < MIN_QTY) {
+            showToast(`Miktar en az ${MIN_QTY} olmalı`, 'error')
+            newQuantity = MIN_QTY
+        }
+        if (newQuantity > MAX_QTY) {
+            showToast(`Miktar ${MAX_QTY}’i aşamaz`, 'error')
+            newQuantity = MAX_QTY
         }
         setOrderItems(orderItems.map(item =>
             item.id === itemId ? { ...item, quantity: newQuantity } : item
@@ -200,8 +253,16 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     const confirmReceived = async () => {
         if (!confirmingItem) return
         const parsedQuantity = parseFloat(receivedQuantityInput)
-        if (Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
+        if (Number.isNaN(parsedQuantity)) {
             showToast('Geçerli bir teslim miktarı girin.')
+            return
+        }
+        if (parsedQuantity < MIN_QTY) {
+            showToast(`Teslim miktarı en az ${MIN_QTY} olmalı.`)
+            return
+        }
+        if (parsedQuantity > MAX_QTY) {
+            showToast(`Teslim miktarı ${MAX_QTY}’i aşamaz.`)
             return
         }
         
@@ -238,15 +299,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     }
 
     const handleDeleteOrder = async (id) => {
-        if (!confirm('Bu sipariş listesini silmek istediğinize emin misiniz?')) return
-        try {
-            const res = await deleteOrder({ id })
-            if (!res.success) throw new Error(res.error)
-            showToast('Sipariş silindi.', 'success')
-            router.refresh()
-        } catch (error) {
-            showToast(error.message)
-        }
+        setConfirmDelete({ open: true, id })
     }
 
     const filteredOrders = initialOrders.filter(o =>
@@ -263,27 +316,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
 
     return (
         <div className="space-y-6">
-            {/* Premium Toast Notification */}
-            {toast && (
-                <div className={`fixed top-6 right-6 z-[100] px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transform transition-all duration-500 animate-slide-in-right backdrop-blur-xl ${toast.type === 'error'
-                    ? 'bg-gradient-to-r from-red-600/90 to-rose-600/90 text-white border border-red-400/30'
-                    : 'bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white border border-green-400/30'
-                    }`}
-                    style={{ boxShadow: toast.type === 'error' ? '0 20px 50px -10px rgba(239, 68, 68, 0.4)' : '0 20px 50px -10px rgba(16, 185, 129, 0.4)' }}
-                >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${toast.type === 'error' ? 'bg-white/20' : 'bg-white/20'}`}>
-                        {toast.type === 'error' ? (
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        ) : (
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        )}
-                    </div>
-                    <span className="font-medium text-sm">{toast.message}</span>
-                    <button onClick={() => setToast(null)} className="ml-2 p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-            )}
+            
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -445,7 +478,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                                             <div>
                                                                 <h3 className="text-lg font-bold text-white">{order.title}</h3>
                                                                 <p className="text-xs text-gray-500">
-                                                                    {new Date(order.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                                                    {new Date(order.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -571,7 +604,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                                 </div>
                                                 <div>
                                                     <h4 className="font-bold text-rose-400">{order.title}</h4>
-                                                    <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString('tr-TR')}</p>
+                                                    <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString(locale)}</p>
                                                 </div>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
@@ -579,7 +612,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                                     <div key={item.id} className="px-4 py-2 bg-black/40 border border-white/10 rounded-xl flex items-center gap-2">
                                                         <span className="w-2 h-2 bg-rose-500 rounded-full"></span>
                                                         <span className="text-white text-sm">{item.productName}</span>
-                                                        <span className="text-rose-400 font-mono text-xs">{item.quantity} {item.unit}</span>
+                                                        <span className="text-rose-400 font-mono text-xs">{fmt(item.quantity)} {item.unit}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -688,11 +721,28 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                             type="number"
                                             value={quantity}
                                             onChange={(e) => setQuantity(e.target.value)}
+                                            onBlur={(e) => {
+                                                const raw = parseFloat(e.target.value)
+                                                if (Number.isNaN(raw)) return
+                                                const step = getStepForUnit(selectedProduct?.unit)
+                                                const clamped = clamp(raw, MIN_QTY, MAX_QTY)
+                                                const rounded = roundToStep(clamped, step)
+                                                setQuantity(String(rounded))
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const q = parseFloat(quantity)
+                                                    if (!selectedProduct || Number.isNaN(q) || q < MIN_QTY || q > MAX_QTY) return
+                                                    handleAddProduct()
+                                                }
+                                            }}
                                             placeholder="Miktar"
-                                            min="0"
-                                            step="0.5"
+                                            min={MIN_QTY}
+                                            max={MAX_QTY}
+                                            step={getStepForUnit(selectedProduct?.unit)}
                                             className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-4 text-white placeholder-gray-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none text-center text-lg font-mono"
                                         />
+                                        <div className="mt-2 text-[10px] text-gray-500 text-center">Min {MIN_QTY} • Maks {MAX_QTY}</div>
                                     </div>
 
                                     {/* Unit Display */}
@@ -703,7 +753,13 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                     {/* Add Button */}
                                     <button
                                         onClick={handleAddProduct}
-                                        disabled={!selectedProduct || !quantity}
+                                        disabled={
+                                            !selectedProduct ||
+                                            !quantity ||
+                                            Number.isNaN(parseFloat(quantity)) ||
+                                            parseFloat(quantity) < MIN_QTY ||
+                                            parseFloat(quantity) > MAX_QTY
+                                        }
                                         className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-600/20 disabled:shadow-none flex items-center gap-2"
                                     >
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
@@ -748,11 +804,28 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                             type="number"
                                             value={customProduct.quantity}
                                             onChange={(e) => setCustomProduct({ ...customProduct, quantity: e.target.value })}
+                                            onBlur={(e) => {
+                                                const raw = parseFloat(e.target.value)
+                                                if (Number.isNaN(raw)) return
+                                                const step = getStepForUnit(customProduct.unit)
+                                                const clamped = clamp(raw, MIN_QTY, MAX_QTY)
+                                                const rounded = roundToStep(clamped, step)
+                                                setCustomProduct({ ...customProduct, quantity: String(rounded) })
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const q = parseFloat(customProduct.quantity)
+                                                    if (!customProduct.name || Number.isNaN(q) || q < MIN_QTY || q > MAX_QTY) return
+                                                    handleAddCustomProduct()
+                                                }
+                                            }}
                                             placeholder="Miktar"
-                                            min="0"
-                                            step="0.5"
+                                            min={MIN_QTY}
+                                            max={MAX_QTY}
+                                            step={getStepForUnit(customProduct.unit)}
                                             className="w-36 bg-black/50 border border-amber-500/30 rounded-2xl px-4 py-4 text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none text-center font-mono"
                                         />
+                                        <div className="text-[10px] text-gray-500 text-center mt-2">Min {MIN_QTY} • Maks {MAX_QTY}</div>
                                         <select
                                             value={customProduct.unit}
                                             onChange={(e) => setCustomProduct({ ...customProduct, unit: e.target.value })}
@@ -771,7 +844,13 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                         </select>
                                         <button
                                             onClick={handleAddCustomProduct}
-                                            disabled={!customProduct.name || !customProduct.quantity}
+                                        disabled={
+                                            !customProduct.name ||
+                                            !customProduct.quantity ||
+                                            Number.isNaN(parseFloat(customProduct.quantity)) ||
+                                            parseFloat(customProduct.quantity) < MIN_QTY ||
+                                            parseFloat(customProduct.quantity) > MAX_QTY
+                                        }
                                             className="px-8 py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-2xl transition-all flex items-center gap-2"
                                         >
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
@@ -790,10 +869,13 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                         <span className="ml-2 px-3 py-1 bg-white/10 text-gray-400 text-sm rounded-full font-mono">
                                             {orderItems.length} ürün
                                         </span>
+                                        <span className="ml-2 px-3 py-1 bg-white/10 text-gray-400 text-sm rounded-full font-mono">
+                                            Toplam {orderItems.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0).toLocaleString(locale)}
+                                        </span>
                                     </div>
                                     {orderItems.length > 0 && (
                                         <button
-                                            onClick={() => setOrderItems([])}
+                                            onClick={() => setConfirmDelete({ open: true, id: 'clear' })}
                                             className="text-red-400 hover:text-red-300 text-sm font-medium flex items-center gap-1"
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -836,14 +918,14 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                                     {/* Quantity Controls */}
                                                     <div className="flex items-center gap-1 bg-black/30 rounded-xl p-1">
                                                         <button
-                                                            onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                                            onClick={() => handleUpdateQuantity(item.id, Math.round((item.quantity - getStepForUnit(item.unit)) * 100) / 100)}
                                                             className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
                                                         </button>
-                                                        <span className="w-12 text-center text-white font-mono text-lg">{item.quantity}</span>
+                                                        <span className="w-12 text-center text-white font-mono text-lg">{fmt(item.quantity)}</span>
                                                         <button
-                                                            onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                                            onClick={() => handleUpdateQuantity(item.id, Math.round((item.quantity + getStepForUnit(item.unit)) * 100) / 100)}
                                                             className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
@@ -913,6 +995,24 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                         type="number"
                                         value={receivedQuantityInput}
                                         onChange={(e) => setReceivedQuantityInput(e.target.value)}
+                                        onBlur={(e) => {
+                                            const raw = parseFloat(e.target.value)
+                                            if (Number.isNaN(raw)) return
+                                            const step = getStepForUnit(confirmingItem.unit)
+                                            const clamped = clamp(raw, MIN_QTY, MAX_QTY)
+                                            const rounded = roundToStep(clamped, step)
+                                            setReceivedQuantityInput(String(rounded))
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const v = parseFloat(receivedQuantityInput)
+                                                if (Number.isNaN(v) || v < MIN_QTY || v > MAX_QTY) return
+                                                confirmReceived()
+                                            }
+                                        }}
+                                        min={MIN_QTY}
+                                        max={MAX_QTY}
+                                        step={getStepForUnit(confirmingItem.unit)}
                                         className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                                         autoFocus
                                     />
@@ -920,6 +1020,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                         {confirmingItem.unit}
                                     </div>
                                 </div>
+                                <div className="mt-2 text-[10px] text-gray-500">Min {MIN_QTY} • Maks {MAX_QTY}</div>
                             </div>
 
                             <div className="flex gap-3 mt-6">
@@ -931,7 +1032,12 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                                 </button>
                                 <button
                                     onClick={confirmReceived}
-                                    disabled={!receivedQuantityInput}
+                                    disabled={
+                                        !receivedQuantityInput ||
+                                        Number.isNaN(parseFloat(receivedQuantityInput)) ||
+                                        parseFloat(receivedQuantityInput) < MIN_QTY ||
+                                        parseFloat(receivedQuantityInput) > MAX_QTY
+                                    }
                                     className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Onayla
@@ -941,6 +1047,31 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
                     </div>
                 </div>
             )}
+            <ConfirmModal
+                open={confirmDelete.open}
+                title="Siparişi Sil"
+                message={confirmDelete.id === 'clear' ? 'Sipariş listesini temizlemek istiyor musunuz?' : 'Bu sipariş listesini silmek istediğinize emin misiniz?'}
+                confirmText={confirmDelete.id === 'clear' ? 'Temizle' : 'Sil'}
+                cancelText="Vazgeç"
+                onConfirm={async () => {
+                    if (confirmDelete.id === 'clear') {
+                        setOrderItems([])
+                        setConfirmDelete({ open: false, id: null })
+                        return
+                    }
+                    try {
+                        const res = await deleteOrder({ id: confirmDelete.id })
+                        if (!res.success) throw new Error(res.error)
+                        showToast('Sipariş silindi.', 'success')
+                        router.refresh()
+                    } catch (error) {
+                        showToast(error.message)
+                    } finally {
+                        setConfirmDelete({ open: false, id: null })
+                    }
+                }}
+                onCancel={() => setConfirmDelete({ open: false, id: null })}
+            />
         </div>
     )
 }

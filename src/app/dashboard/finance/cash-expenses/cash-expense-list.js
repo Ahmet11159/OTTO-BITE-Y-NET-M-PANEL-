@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { getCashExpenses, getCashExpenseStats, getExpenseCategories, createCashExpense, addExpenseCategory, updateCashExpense, deleteCashExpense, updateExpenseCategory, deleteExpenseCategory } from '@/app/actions/cash-expense'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
+import { getSettings } from '@/app/actions/settings'
 
 export default function CashExpenseList({ initialExpenses, initialStats }) {
   const [expenses, setExpenses] = useState(initialExpenses || [])
@@ -14,13 +17,15 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
   const [search, setSearch] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [locale, setLocale] = useState('tr-TR')
 
   // Modals
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editing, setEditing] = useState(null)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { addToast } = useToast()
+  const [confirmState, setConfirmState] = useState({ open: false, onConfirm: null, message: '' })
 
   const router = useRouter()
   const params = useSearchParams()
@@ -37,10 +42,14 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
     loadCategories()
   }, [])
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 4000)
-  }
+  useEffect(() => {
+    getSettings().then(res => {
+      if (res.success && res.data?.general?.locale) {
+        setLocale(String(res.data.general.locale))
+      }
+    }).catch(() => {})
+  }, [])
+  const showToast = (message, type = 'success') => addToast(message, type)
 
   const loadCategories = async () => {
     const res = await getExpenseCategories()
@@ -92,7 +101,7 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
       setShowCreate(false)
       fetchAll()
       e.target.reset()
-      showToast('Harcama kaydedildi')
+      showToast('Harcama kaydedildi', 'success')
     } else {
       showToast(res.error || 'Hata oluştu', 'error')
     }
@@ -103,7 +112,7 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
     if (!name) return
     const res = await addExpenseCategory({ name })
     if (res.success) {
-      showToast('Kategori eklendi')
+      showToast('Kategori eklendi', 'success')
       loadCategories()
     } else {
       showToast(res.error, 'error')
@@ -113,7 +122,7 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
   const downloadCsv = () => {
     const header = ['Tarih', 'Kategori', 'Açıklama', 'Tutar', 'Ödeme', 'Belge']
     const rows = expenses.map(e => [
-      new Date(e.date).toLocaleString('tr-TR'),
+      new Date(e.date).toLocaleString(locale),
       e.category,
       e.description,
       e.amount,
@@ -132,19 +141,14 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className={`fixed top-6 right-6 z-[100] px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-slide-in-right backdrop-blur-xl ${toast.type === 'error' ? 'bg-red-600/90 text-white' : 'bg-emerald-600/90 text-white'
-          }`}>
-          <span className="font-medium text-sm">{toast.message}</span>
-        </div>
-      )}
+      
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-rose-600/20 to-red-600/20 border border-rose-500/20 rounded-2xl p-5 relative overflow-hidden">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl"></div>
           <p className="text-rose-400 text-xs font-bold uppercase tracking-wider mb-1">Toplam Çıkış</p>
-          <p className="text-3xl font-bold text-white">{stats.totalAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</p>
+          <p className="text-3xl font-bold text-white">{stats.totalAmount.toLocaleString(locale, { minimumFractionDigits: 2 })} ₺</p>
         </div>
         <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 rounded-2xl p-5 relative overflow-hidden">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl"></div>
@@ -157,7 +161,7 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
             {stats.byCategory.map(c => (
               <div key={c.category} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 flex items-center gap-2">
                 <span className="text-xs text-gray-300">{c.category}</span>
-                <span className="text-sm font-bold text-white">{c.amount.toLocaleString('tr-TR')} ₺</span>
+                <span className="text-sm font-bold text-white">{c.amount.toLocaleString(locale)} ₺</span>
               </div>
             ))}
           </div>
@@ -213,7 +217,7 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
               <div key={exp.id} className="group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-white/5 bg-black/20 hover:bg-white/[0.02] hover:border-white/10 transition-all">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-white/5 flex flex-col items-center justify-center border border-white/5 text-center">
-                    <span className="text-xs font-bold text-gray-400 uppercase">{new Date(exp.date).toLocaleString('tr-TR', { month: 'short' })}</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase">{new Date(exp.date).toLocaleString(locale, { month: 'short' })}</span>
                     <span className="text-lg font-bold text-white">{new Date(exp.date).getDate()}</span>
                   </div>
                   <div>
@@ -222,23 +226,29 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
                       {exp.receiptNumber && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">#{exp.receiptNumber}</span>}
                     </div>
                     <p className="text-sm text-gray-400">{exp.description}</p>
-                    <p className="text-xs text-gray-600 mt-1 md:hidden">{new Date(exp.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} • {exp.paymentMethod === 'CASH' ? 'Nakit' : exp.paymentMethod}</p>
+                    <p className="text-xs text-gray-600 mt-1 md:hidden">{new Date(exp.date).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} • {exp.paymentMethod === 'CASH' ? 'Nakit' : exp.paymentMethod}</p>
                   </div>
                 </div>
                 <div className="mt-3 md:mt-0 flex items-center justify-between md:justify-end gap-6">
                   <div className="text-right">
-                    <p className="text-lg font-bold text-white font-mono tracking-tight">{exp.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</p>
-                    <p className="text-xs text-gray-500 hidden md:block">{new Date(exp.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} • {exp.paymentMethod === 'CASH' ? 'Nakit' : exp.paymentMethod}</p>
+                      <p className="text-lg font-bold text-white font-mono tracking-tight">{exp.amount.toLocaleString(locale, { minimumFractionDigits: 2 })} ₺</p>
+                      <p className="text-xs text-gray-500 hidden md:block">{new Date(exp.date).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} • {exp.paymentMethod === 'CASH' ? 'Nakit' : exp.paymentMethod}</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => { setEditing(exp); setShowEdit(true) }} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
-                    <button onClick={async () => {
-                      if (!confirm('Silmek istediğinize emin misiniz?')) return
-                      const res = await deleteCashExpense({ id: exp.id })
-                      if (res.success) { showToast('Kayıt silindi'); fetchAll() }
-                      else showToast(res.error, 'error')
+                    <button onClick={() => {
+                      setConfirmState({
+                        open: true,
+                        message: 'Bu harcama kaydını silmek istediğinize emin misiniz?',
+                        onConfirm: async () => {
+                          const res = await deleteCashExpense({ id: exp.id })
+                          if (res.success) { showToast('Kayıt silindi', 'success'); fetchAll() }
+                          else showToast(res.error, 'error')
+                          setConfirmState({ open: false, onConfirm: null, message: '' })
+                        }
+                      })
                     }} className="p-2 rounded-lg bg-red-500/5 hover:bg-red-500/20 text-red-500/50 group-hover:text-red-500 transition-colors">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
@@ -344,10 +354,15 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
                     }}
                   />
                   <button onClick={async () => {
-                    if (confirm('Sil?')) {
-                      await deleteExpenseCategory({ id: cat.id })
-                      loadCategories()
-                    }
+                    setConfirmState({
+                      open: true,
+                      message: 'Bu kategoriyi silmek istediğinize emin misiniz?',
+                      onConfirm: async () => {
+                        await deleteExpenseCategory({ id: cat.id })
+                        loadCategories()
+                        setConfirmState({ open: false, onConfirm: null, message: '' })
+                      }
+                    })
                   }} className="text-red-500 hover:text-red-400 p-2">✕</button>
                 </div>
               ))}
@@ -355,6 +370,16 @@ export default function CashExpenseList({ initialExpenses, initialStats }) {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmState.open}
+        title="Silme Onayı"
+        message={confirmState.message}
+        confirmText="Sil"
+        cancelText="Vazgeç"
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState({ open: false, onConfirm: null, message: '' })}
+      />
     </div>
   )
 }

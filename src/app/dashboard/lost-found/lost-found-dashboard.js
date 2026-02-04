@@ -7,6 +7,9 @@ import { ITEM_CATEGORIES, STATUS_CONFIG, getCategoryIcon } from './constants'
 import LostItemForm from './lost-item-form'
 import LostItemDetailModal from './lost-item-detail-modal'
 import LostItemEditModal from './lost-item-edit-modal'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
+import { getSettings } from '@/app/actions/settings'
 
 export default function LostFoundDashboard({ initialItems, stats, user }) {
     const router = useRouter()
@@ -20,15 +23,21 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
     const [showReturnModal, setShowReturnModal] = useState(false)
     const [returnToName, setReturnToName] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [toast, setToast] = useState(null)
+    const { addToast } = useToast()
+    const [confirmState, setConfirmState] = useState({ open: false, message: '', onConfirm: null })
+    const [locale, setLocale] = useState('tr-TR')
 
     const isAdmin = user?.role === 'ADMIN'
 
-    // Toast göster
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type })
-        setTimeout(() => setToast(null), 3000)
-    }
+    const showToast = (message, type = 'success') => addToast(message, type)
+
+    useEffect(() => {
+        getSettings().then(res => {
+            if (res.success && res.data?.general?.locale) {
+                setLocale(String(res.data.general.locale))
+            }
+        }).catch(() => {})
+    }, [])
 
     // Filtreleme
     const filteredItems = items.filter(item => {
@@ -91,20 +100,24 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
 
     // İmha et
     const handleDispose = async (item) => {
-        if (!confirm(`"${item.itemName}" eşyasını imha edildi olarak işaretlemek istediğinize emin misiniz?`)) return
-        setIsSubmitting(true)
-
-        try {
-            const res = await disposeItem({ id: item.id })
-            if (!res.success) throw new Error(res.error)
-
-            showToast(`"${item.itemName}" imha edildi olarak işaretlendi.`)
-            router.refresh()
-        } catch (error) {
-            showToast(error.message, 'error')
-        } finally {
-            setIsSubmitting(false)
-        }
+        setConfirmState({
+            open: true,
+            message: `"${item.itemName}" eşyasını imha edildi olarak işaretlemek istiyor musunuz?`,
+            onConfirm: async () => {
+                setIsSubmitting(true)
+                try {
+                    const res = await disposeItem({ id: item.id })
+                    if (!res.success) throw new Error(res.error)
+                    showToast(`"${item.itemName}" imha edildi olarak işaretlendi.`, 'success')
+                    router.refresh()
+                } catch (error) {
+                    showToast(error.message, 'error')
+                } finally {
+                    setIsSubmitting(false)
+                    setConfirmState({ open: false, message: '', onConfirm: null })
+                }
+            }
+        })
     }
 
     // Reminders Logic
@@ -117,27 +130,31 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
 
     // Sil
     const handleDelete = async (item) => {
-        if (!confirm(`"${item.itemName}" kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return
-        setIsSubmitting(true)
-
-        try {
-            const res = await deleteLostItem({ id: item.id })
-            if (!res.success) throw new Error(res.error)
-
-            showToast('Kayıt silindi.')
-            setSelectedItem(null)
-            router.refresh()
-        } catch (error) {
-            showToast(error.message, 'error')
-        } finally {
-            setIsSubmitting(false)
-        }
+        setConfirmState({
+            open: true,
+            message: `"${item.itemName}" kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+            onConfirm: async () => {
+                setIsSubmitting(true)
+                try {
+                    const res = await deleteLostItem({ id: item.id })
+                    if (!res.success) throw new Error(res.error)
+                    showToast('Kayıt silindi.', 'success')
+                    setSelectedItem(null)
+                    router.refresh()
+                } catch (error) {
+                    showToast(error.message, 'error')
+                } finally {
+                    setIsSubmitting(false)
+                    setConfirmState({ open: false, message: '', onConfirm: null })
+                }
+            }
+        })
     }
 
     // Tarih formatla
     const formatDate = (date) => {
         if (!date) return '-'
-        return new Date(date).toLocaleDateString('tr-TR', {
+        return new Date(date).toLocaleDateString(locale, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
@@ -149,7 +166,7 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
     // Kısa tarih formatı
     const formatShortDate = (date) => {
         if (!date) return '-'
-        return new Date(date).toLocaleDateString('tr-TR', {
+        return new Date(date).toLocaleDateString(locale, {
             day: 'numeric',
             month: 'short',
             hour: '2-digit',
@@ -159,15 +176,7 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
 
     return (
         <div className="space-y-6">
-            {/* Toast Bildirimi */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-2xl shadow-lg backdrop-blur-xl border transition-all duration-300 ${toast.type === 'error'
-                    ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                    : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                    }`}>
-                    {toast.message}
-                </div>
-            )}
+            
 
             {/* Başlık */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -434,6 +443,7 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
                     onReturn={() => setShowReturnModal(true)}
                     onDispose={() => handleDispose(selectedItem)}
                     onDelete={() => handleDelete(selectedItem)}
+                    locale={locale}
                 />
             )}
 
@@ -496,6 +506,15 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
                     </div>
                 </div>
             )}
+            <ConfirmModal
+                open={confirmState.open}
+                title="Onay"
+                message={confirmState.message}
+                confirmText="Onayla"
+                cancelText="Vazgeç"
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState({ open: false, message: '', onConfirm: null })}
+            />
         </div>
     )
 }

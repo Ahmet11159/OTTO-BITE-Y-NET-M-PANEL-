@@ -2,21 +2,33 @@
 
 import { useState, useEffect } from 'react'
 import { getInventoryLogs } from '@/app/actions/inventory'
+import { useToast } from '@/app/providers/toast-provider'
+import { getSettings } from '@/app/actions/settings'
 
 export default function InventoryLogModal({ onClose }) {
     const [logs, setLogs] = useState([])
     const [isLoading, setIsLoading] = useState(true)
+    const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
+    const pageSize = 10
+    const { addToast } = useToast()
+    const [locale, setLocale] = useState('tr-TR')
 
     useEffect(() => {
+        getSettings().then(res => {
+            if (res.success && res.data?.general?.locale) {
+                setLocale(String(res.data.general.locale))
+            }
+        }).catch(() => {})
         getInventoryLogs()
             .then(res => {
                 if (res.success) {
                     setLogs(res.data)
                 } else {
-                    console.error(res.error)
+                    addToast(res.error || 'İşlem geçmişi alınamadı', 'error')
                 }
             })
-            .catch(err => console.error(err))
+            .catch(err => addToast(err.message || 'İşlem geçmişi alınamadı', 'error'))
             .finally(() => setIsLoading(false))
     }, [])
 
@@ -40,6 +52,19 @@ export default function InventoryLogModal({ onClose }) {
                     </div>
                 </div>
 
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="relative flex-1">
+                        <input
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                            placeholder="Ürün adı, detay veya kullanıcı ile ara..."
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-600 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 outline-none"
+                        />
+                        <svg className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                    <button onClick={() => { setSearch(''); setPage(1) }} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-gray-300">Temizle</button>
+                </div>
+
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
                     {isLoading ? (
                         <div className="flex justify-center py-20">
@@ -51,7 +76,16 @@ export default function InventoryLogModal({ onClose }) {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {logs.map((log) => (
+                            {logs.filter((log) => {
+                                if (!search) return true
+                                const q = search.toLowerCase()
+                                return (
+                                    (log.productName || '').toLowerCase().includes(q) ||
+                                    (log.details || '').toLowerCase().includes(q) ||
+                                    (log.userName || '').toLowerCase().includes(q) ||
+                                    (log.actionType || '').toLowerCase().includes(q)
+                                )
+                            }).slice((page - 1) * pageSize, page * pageSize).map((log) => (
                                 <div key={log.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                                         log.actionType === 'STOCK_IN' ? 'bg-green-500/20 text-green-400' :
@@ -73,7 +107,7 @@ export default function InventoryLogModal({ onClose }) {
                                         <div className="flex items-center justify-between mb-1">
                                             <h3 className="text-white font-medium truncate">{log.productName}</h3>
                                             <span className="text-xs text-gray-500 font-mono">
-                                                {new Date(log.createdAt).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(log.createdAt).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
                                         <p className="text-sm text-gray-400 truncate">{log.details}</p>
@@ -87,6 +121,43 @@ export default function InventoryLogModal({ onClose }) {
                         </div>
                     )}
                 </div>
+                {!isLoading && logs.length > 0 && (
+                    <div className="mt-4 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                            Sayfa {page} / {Math.max(1, Math.ceil(logs.filter((log) => {
+                                if (!search) return true
+                                const q = search.toLowerCase()
+                                return (
+                                    (log.productName || '').toLowerCase().includes(q) ||
+                                    (log.details || '').toLowerCase().includes(q) ||
+                                    (log.userName || '').toLowerCase().includes(q) ||
+                                    (log.actionType || '').toLowerCase().includes(q)
+                                )
+                            }).length / pageSize))}
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs hover:bg-white/20 disabled:opacity-50"
+                                disabled={page <= 1}
+                            >Önceki</button>
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs hover:bg-white/20 disabled:opacity-50"
+                                disabled={page >= Math.ceil(logs.filter((log) => {
+                                    if (!search) return true
+                                    const q = search.toLowerCase()
+                                    return (
+                                        (log.productName || '').toLowerCase().includes(q) ||
+                                        (log.details || '').toLowerCase().includes(q) ||
+                                        (log.userName || '').toLowerCase().includes(q) ||
+                                        (log.actionType || '').toLowerCase().includes(q)
+                                    )
+                                }).length / pageSize)}
+                            >Sonraki</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

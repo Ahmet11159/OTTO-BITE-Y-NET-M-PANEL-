@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { createLostItem } from '@/app/actions/lost-found'
 import { ITEM_CATEGORIES } from './constants'
+import { useToast } from '@/app/providers/toast-provider'
 
 export default function LostItemForm({ onClose, onSuccess }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState('')
+    const { addToast } = useToast()
 
     // Bugünün tarihi ve şimdiki saat
     const today = new Date()
@@ -39,6 +41,8 @@ export default function LostItemForm({ onClose, onSuccess }) {
         e.preventDefault()
         setError('')
         setIsSubmitting(true)
+        const isValidPhone = (v) => !v || /^05\d{2}\s?\d{3}\s?\d{2}\s?\d{2}$/.test(v.replace(/[-.]/g, ' ').trim())
+        const isValidEmail = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
 
         try {
             // Tarih ve saati birleştir
@@ -71,6 +75,19 @@ export default function LostItemForm({ onClose, onSuccess }) {
                 foundAt = `${formData.foundAtDate}T00:00:00`
             }
 
+            if (!isValidPhone(formData.customerPhone)) {
+                setError('Telefon formatı geçersiz. Örn: 05XX XXX XX XX')
+                addToast('Telefon formatı geçersiz', 'error')
+                setIsSubmitting(false)
+                return
+            }
+            if (!isValidEmail(formData.customerEmail)) {
+                setError('E-posta formatı geçersiz.')
+                addToast('E-posta formatı geçersiz', 'error')
+                setIsSubmitting(false)
+                return
+            }
+
             const res = await createLostItem({
                 itemName: formData.itemName,
                 itemDescription: formData.itemDescription,
@@ -88,9 +105,11 @@ export default function LostItemForm({ onClose, onSuccess }) {
             })
 
             if (!res.success) throw new Error(res.error)
+            addToast('Kayıt oluşturuldu', 'success')
             onSuccess()
         } catch (err) {
             setError(err.message)
+            addToast(err.message || 'Bir hata oluştu', 'error')
         } finally {
             setIsSubmitting(false)
         }

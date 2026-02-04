@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createProduct, getFilterOptions } from '@/app/actions/inventory'
+import { useToast } from '@/app/providers/toast-provider'
 
 export default function NewProductModal({ onClose, onUpdate }) {
     const [isLoading, setIsLoading] = useState(false)
     const [options, setOptions] = useState({ categories: [], units: [] })
+    const [unitStep, setUnitStep] = useState(1)
+    const [selectedUnit, setSelectedUnit] = useState('ADET')
+    const { addToast } = useToast()
 
     useEffect(() => {
         getFilterOptions().then(res => {
@@ -28,16 +32,25 @@ export default function NewProductModal({ onClose, onUpdate }) {
                 startStock: formData.get('startStock')
             }
 
+            const q = parseFloat(data.startStock)
+            if (!data.name || !data.unit || !data.category) {
+                addToast('Tüm alanlar gerekli', 'error'); setIsLoading(false); return
+            }
+            if (Number.isNaN(q) || q < 0) {
+                addToast('Başlangıç stoğu 0 veya daha büyük olmalı', 'error'); setIsLoading(false); return
+            }
+
             const res = await createProduct(data)
 
             if (res.success) {
+                addToast('Ürün eklendi', 'success')
                 if (onUpdate) await onUpdate()
                 onClose()
             } else {
-                alert('Hata: ' + res.error)
+                addToast(res.error || 'Hata oluştu', 'error')
             }
         } catch (error) {
-            alert('Beklenmedik bir hata oluştu.')
+            addToast('Beklenmedik bir hata oluştu', 'error')
         } finally {
             setIsLoading(false)
         }
@@ -99,6 +112,12 @@ export default function NewProductModal({ onClose, onUpdate }) {
                             <div className="relative">
                                 <select
                                     name="unit"
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        const u = (val || '').toLowerCase()
+                                        setUnitStep(['kg', 'kilogram', 'litre', 'liter'].includes(u) ? 0.5 : 1)
+                                        setSelectedUnit(val || 'ADET')
+                                    }}
                                     required
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/50 focus:outline-none transition-all appearance-none cursor-pointer"
                                 >
@@ -118,17 +137,20 @@ export default function NewProductModal({ onClose, onUpdate }) {
                             <input
                                 name="startStock"
                                 type="number"
-                                step="any"
+                                step={unitStep}
+                                min={0}
+                                inputMode="decimal"
                                 required
                                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/50 focus:outline-none transition-all placeholder:text-gray-700"
                                 placeholder="0.00"
                             />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs font-bold">ADET / KG</div>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300 text-xs font-bold">{String(selectedUnit || '').toUpperCase()}</div>
                         </div>
                         <p className="text-[10px] text-gray-500 mt-2 pl-1 flex items-center gap-1">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             Bu değer mevcut ayın başındaki devir stoğu olarak kaydedilir.
                         </p>
+                        <div className="text-[10px] text-gray-500 mt-1 pl-1">Min 0 • Adım {unitStep}</div>
                     </div>
 
                     <button

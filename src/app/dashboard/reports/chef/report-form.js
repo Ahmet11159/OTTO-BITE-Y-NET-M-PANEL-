@@ -2,9 +2,25 @@
 
 import { useState } from 'react'
 import { createReport, updateReport } from '@/app/actions/report'
+import { useToast } from '@/app/providers/toast-provider'
+import { useEffect } from 'react'
+import { getSettings } from '@/app/actions/settings'
 
 export default function ReportForm({ initialData, isManagerRole }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const { addToast } = useToast()
+    const [minLen, setMinLen] = useState(5)
+    const [personnelStatusLen, setPersonnelStatusLen] = useState(initialData?.personnelStatus?.length || 0)
+    const [operationalNotesLen, setOperationalNotesLen] = useState(initialData?.operationalNotes?.length || 0)
+
+    useEffect(() => {
+        getSettings().then(res => {
+            if (res.success) {
+                const v = res.data?.reports?.minTextLength
+                if (typeof v === 'number' && v > 0) setMinLen(v)
+            }
+        }).catch(() => {})
+    }, [])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -17,6 +33,18 @@ export default function ReportForm({ initialData, isManagerRole }) {
             operationalNotes: formData.get('operationalNotes') || '-',
             technicalIssues: formData.get('technicalIssues'),
             closingChecklist: formData.get('closingChecklist') === 'on'
+        }
+
+        const minTextOk = (v) => !v || String(v).trim().length >= minLen
+        if (!minTextOk(data.personnelStatus)) {
+            addToast(`Personel durumu en az ${minLen} karakter olmalı`, 'error')
+            setIsSubmitting(false)
+            return
+        }
+        if (!minTextOk(data.operationalNotes)) {
+            addToast(`Operasyon notları en az ${minLen} karakter olmalı`, 'error')
+            setIsSubmitting(false)
+            return
         }
 
         // Manager specific override
@@ -36,10 +64,12 @@ export default function ReportForm({ initialData, isManagerRole }) {
             }
 
             if (res?.error) {
-                alert(res.error)
+                addToast(res.error, 'error')
+            } else {
+                addToast(initialData ? 'Rapor güncellendi' : 'Rapor oluşturuldu', 'success')
             }
         } catch (error) {
-            alert('Bir hata oluştu.')
+            addToast('Bir hata oluştu.', 'error')
         } finally {
             setIsSubmitting(false)
         }
@@ -95,10 +125,12 @@ export default function ReportForm({ initialData, isManagerRole }) {
                         <textarea
                             name="personnelStatus"
                             defaultValue={initialData?.personnelStatus || ''}
+                            onChange={(e) => setPersonnelStatusLen(String(e.target.value).length)}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-[#d4af37] transition-all min-h-[80px]"
                             placeholder="Örn: 2 Eksik (Ali izinli), mutfak tam kadro."
                             required
                         />
+                        <div className="text-[11px] text-gray-500 mt-1">{personnelStatusLen} / {minLen} karakter</div>
                     </div>
 
                     <div>
@@ -106,10 +138,12 @@ export default function ReportForm({ initialData, isManagerRole }) {
                         <textarea
                             name="operationalNotes"
                             defaultValue={initialData?.operationalNotes || ''}
+                            onChange={(e) => setOperationalNotesLen(String(e.target.value).length)}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-[#d4af37] transition-all min-h-[120px]"
                             placeholder="Gün içindeki önemli olaylar, misafir şikayetleri, özel durumlar..."
                             required
                         />
+                        <div className="text-[11px] text-gray-500 mt-1">{operationalNotesLen} / {minLen} karakter</div>
                     </div>
 
                     <div>

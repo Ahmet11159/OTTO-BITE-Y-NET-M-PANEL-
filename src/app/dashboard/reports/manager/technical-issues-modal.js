@@ -1,10 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ReportCard from './report-card'
+import { getSettings } from '@/app/actions/settings'
 
 export default function TechnicalIssuesModal({ reports, onClose, currentUserId }) {
     const [selectedDetail, setSelectedDetail] = useState(null)
     const [showDateFilter, setShowDateFilter] = useState(false)
     const [dateFilter, setDateFilter] = useState({ start: '', end: '' })
+    const [locale, setLocale] = useState('tr-TR')
+
+    useEffect(() => {
+        getSettings()
+            .then(res => {
+                if (res.success && res.data?.general?.locale) {
+                    setLocale(String(res.data.general.locale))
+                }
+            })
+            .catch(() => {})
+    }, [])
 
     // Filter reports with technical issues
     let issues = reports.filter(r => r.technicalIssues)
@@ -147,9 +159,9 @@ export default function TechnicalIssuesModal({ reports, onClose, currentUserId }
                                     {issues.map((report) => (
                                         <tr key={report.id} className="bg-zinc-950 hover:bg-zinc-900/50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap" suppressHydrationWarning>
-                                                {new Date(report.createdAt).toLocaleDateString('tr-TR')}
+                                                {new Date(report.createdAt).toLocaleDateString(locale)}
                                                 <div className="text-xs text-gray-600">
-                                                    {new Date(report.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(report.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-medium text-white">

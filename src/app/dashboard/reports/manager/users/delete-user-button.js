@@ -2,45 +2,55 @@
 
 import { useState } from 'react'
 import { deleteUser } from '@/app/actions/user'
+import ConfirmModal from '@/app/components/confirm-modal'
+import { useToast } from '@/app/providers/toast-provider'
 
 export default function DeleteUserButton({ userId }) {
     const [isDeleting, setIsDeleting] = useState(false)
-    const [needsConfirmation, setNeedsConfirmation] = useState(false)
+    const [showConfirm, setShowConfirm] = useState(false)
+    const { addToast } = useToast()
 
     const handleDelete = async () => {
-        if (!needsConfirmation) {
-            setNeedsConfirmation(true)
-            // Auto-reset after 3 seconds
-            setTimeout(() => setNeedsConfirmation(false), 3000)
-            return
-        }
-
         setIsDeleting(true)
         try {
             const res = await deleteUser({ id: userId })
             if (!res.success) {
-                alert(res.error)
+                addToast(res.error, 'error')
                 setIsDeleting(false)
+            } else {
+                addToast('Kullanıcı silindi', 'success')
             }
-            // Success: page will revalidate
         } catch (error) {
-            alert('Bir hata oluştu.')
+            addToast('Bir hata oluştu.', 'error')
             setIsDeleting(false)
+        } finally {
+            setShowConfirm(false)
         }
     }
 
     return (
-        <button
-            onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                handleDelete()
-            }}
-            type="button"
-            disabled={isDeleting}
-            className={`transition-colors disabled:opacity-50 ${needsConfirmation ? 'text-red-600 font-bold bg-white/10 px-2 rounded' : 'text-red-400 hover:text-red-300'}`}
-        >
-            {isDeleting ? 'Siliniyor...' : needsConfirmation ? 'Emin misiniz?' : 'Sil'}
-        </button>
+        <>
+            <button
+                onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setShowConfirm(true)
+                }}
+                type="button"
+                disabled={isDeleting}
+                className="text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+            >
+                {isDeleting ? 'Siliniyor...' : 'Sil'}
+            </button>
+            <ConfirmModal
+                open={showConfirm}
+                title="Kullanıcı Sil"
+                message="Bu kullanıcıyı silmek istediğinize emin misiniz?"
+                confirmText="Sil"
+                cancelText="Vazgeç"
+                onConfirm={handleDelete}
+                onCancel={() => setShowConfirm(false)}
+            />
+        </>
     )
 }

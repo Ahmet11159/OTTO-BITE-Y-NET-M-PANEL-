@@ -1,10 +1,10 @@
-export default function ChefStats({ reports }) {
+export default function ChefStats({ reports, locale = 'tr-TR' }) {
     const totalReports = reports.length
     const technicalIssues = reports.filter(r => r.technicalIssues && r.technicalIssues.length > 0).length
 
     // Calculate last report date properly
     const lastReportDate = reports.length > 0
-        ? new Date(reports[0].createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+        ? new Date(reports[0].createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'long' })
         : '-'
 
     return (

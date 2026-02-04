@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { safeAction } from '@/lib/safe-action'
 import { logger } from '@/lib/logger'
+import { notify } from '@/lib/notify'
 import { z } from 'zod'
 
 /**
@@ -92,13 +93,7 @@ export const createOrder = safeAction(async (data) => {
     })
 
     // Broadcast notification
-    await prisma.orderNotification.create({
-        data: {
-            type: 'ORDER_CREATED',
-            content: `"${title}" başlıklı yeni bir sipariş listesi oluşturuldu.`,
-            userName: session.fullName
-        }
-    })
+    await notify('ORDER_CREATED', `"${title}" başlıklı yeni bir sipariş listesi oluşturuldu.`, session.fullName, { link: '/dashboard/orders' })
 
     logger.info(`Order created: ${title} by ${session.fullName}`)
     revalidatePath('/dashboard/orders')
@@ -144,13 +139,7 @@ export const toggleItemReceived = safeAction(async (data) => {
     })
 
     if (isReceived) {
-        await prisma.orderNotification.create({
-            data: {
-                type: 'ITEM_RECEIVED',
-                content: `"${item.order.title}" listesindeki "${item.productName}" ürünü geldi.${normalizedQuantity !== null ? ` (${normalizedQuantity} ${item.unit})` : ''}`,
-                userName: session.fullName
-            }
-        })
+        await notify('ITEM_RECEIVED', `"${item.order.title}" listesindeki "${item.productName}" ürünü geldi.${normalizedQuantity !== null ? ` (${normalizedQuantity} ${item.unit})` : ''}`, session.fullName, { link: '/dashboard/orders' })
     }
 
     revalidatePath('/dashboard/orders')

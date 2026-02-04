@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { safeAction } from '@/lib/safe-action'
 import { z } from 'zod'
+import { notify } from '@/lib/notify'
 
 // --- Schemas ---
 
@@ -57,6 +58,7 @@ export const createReport = safeAction(async (data) => {
             authorId: session.id
         }
     })
+    await notify('REPORT_CREATED', `${department} departmanı için ${shiftType} raporu oluşturuldu.`, session.fullName, { link: session.role === 'ADMIN' ? '/dashboard/reports/manager' : '/dashboard/reports/chef' })
 
     if (session.role === 'ADMIN') {
         redirect('/dashboard/reports/manager')
@@ -155,6 +157,7 @@ export const addManagerNote = safeAction(async (data) => {
             reviewedById: session.id
         }
     })
+    await notify('REPORT_MANAGER_NOTE', `Rapora yönetici notu eklendi.`, session.fullName, { link: '/dashboard/reports/manager' })
 
     revalidatePath('/dashboard/reports/manager')
 }, ManagerNoteSchema)
@@ -179,6 +182,7 @@ export const toggleReviewStatus = safeAction(async (data) => {
         where: { id: reportId },
         data: updateData
     })
+    await notify(isReviewed ? 'REPORT_REVIEWED' : 'REPORT_UNREVIEWED', `Rapor ${isReviewed ? 'incelendi' : 'inceleme kaldırıldı'}.`, session.fullName, { link: '/dashboard/reports/manager' })
 
     revalidatePath('/dashboard/reports/manager')
 }, ReviewStatusSchema)
@@ -204,6 +208,7 @@ export const deleteReport = safeAction(async (data) => {
     await prisma.report.delete({
         where: { id: reportId }
     })
+    await notify('REPORT_DELETED', `Rapor silindi.`, session.fullName, { link: '/dashboard/reports/manager', priority: 'HIGH' })
 
     revalidatePath('/dashboard/reports/chef')
     revalidatePath('/dashboard/reports/manager')
@@ -236,6 +241,7 @@ export const updateReport = safeAction(async (data) => {
             closingChecklist: !!closingChecklist
         }
     })
+    await notify('REPORT_UPDATED', `Rapor güncellendi.`, session.fullName, { link: '/dashboard/reports/chef' })
 
     redirect('/dashboard/reports/chef')
 }, UpdateReportSchema)

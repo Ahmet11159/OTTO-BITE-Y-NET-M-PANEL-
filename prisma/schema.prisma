@@ -133,6 +133,20 @@ model OrderNotification {
   createdAt DateTime @default(now())
 }
 
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String
+  content   String
+  userName  String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  link      String?
+  role      String?
+  department String?
+  userId    Int?
+  priority  String   @default("INFO")
+}
+
 // Kayıp Eşya Modülü
 model LostItem {
   id              Int       @id @default(autoincrement())

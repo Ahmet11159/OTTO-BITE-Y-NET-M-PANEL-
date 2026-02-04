@@ -35,6 +35,9 @@
     background-image: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.03), transparent 40%),
                       radial-gradient(circle at 100% 100%, rgba(20, 20, 20, 1), transparent 30%);
     background-attachment: fixed;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   /* Custom Scrollbar */
@@ -63,7 +66,7 @@
 
 @layer components {
   .container {
-    @apply max-w-[1400px] mx-auto px-6;
+    @apply max-w-[1400px] mx-auto px-4 md:px-6;
   }
 
   .glass-panel {

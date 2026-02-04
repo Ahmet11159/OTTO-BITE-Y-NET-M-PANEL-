@@ -4,8 +4,10 @@ import prisma from '../../lib/prisma'
 import { getSession } from '../../lib/auth'
 import { revalidatePath } from 'next/cache'
 import { logger } from '@/lib/logger'
+import { notify } from '@/lib/notify'
 import { safeAction } from '@/lib/safe-action'
 import { z } from 'zod'
+import { getSettings } from '@/app/actions/settings'
 
 // --- Schemas ---
 
@@ -231,6 +233,8 @@ export const createInventoryCountReportNow = safeAction(async () => {
     }
 
     const now = new Date()
+    const settingsRes = await getSettings()
+    const locale = settingsRes.success && settingsRes.data?.general?.locale ? String(settingsRes.data.general.locale) : 'tr-TR'
     const products = await prisma.product.findMany({ orderBy: { name: 'asc' } })
     const payload = {
         generatedAt: now.toISOString(),
@@ -246,7 +250,7 @@ export const createInventoryCountReportNow = safeAction(async () => {
 
     const report = await prisma.stockReport.create({
         data: {
-            period: `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
+            period: `${now.toLocaleDateString(locale)} ${now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`,
             data: JSON.stringify(payload)
         }
     })
@@ -265,6 +269,8 @@ export const checkAndRunInventoryCountSchedule = safeAction(async () => {
     if (!schedule || !schedule.isEnabled) return { ran: false }
 
     const now = new Date()
+    const settingsRes = await getSettings()
+    const locale = settingsRes.success && settingsRes.data?.general?.locale ? String(settingsRes.data.general.locale) : 'tr-TR'
     const runAt = buildScheduleRunDate(now, schedule)
     if (!runAt || now < runAt) return { ran: false }
 
@@ -287,7 +293,7 @@ export const checkAndRunInventoryCountSchedule = safeAction(async () => {
 
     await prisma.stockReport.create({
         data: {
-            period: `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`,
+            period: `${now.toLocaleDateString(locale)} ${now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`,
             data: JSON.stringify(payload)
         }
     })
@@ -331,6 +337,7 @@ export const createProduct = safeAction(async (data) => {
             userId: session.id
         }
     })
+    await notify('INVENTORY_PRODUCT_CREATED', `"${name}" ürünü oluşturuldu. Başlangıç stoğu: ${startStock} ${unit}`, session.fullName, { link: '/dashboard/inventory' })
 
     revalidatePath('/dashboard/inventory')
     return product
@@ -381,6 +388,7 @@ export const updateStock = safeAction(async (data) => {
             userId: uId || 0
         }
     })
+    await notify(type === 'IN' ? 'INVENTORY_STOCK_IN' : 'INVENTORY_STOCK_OUT', `${updatedProduct.name}: ${details}`, session.fullName, { link: '/dashboard/inventory' })
 
     revalidatePath('/dashboard/inventory')
     return updatedProduct
@@ -434,6 +442,7 @@ export const deleteProduct = safeAction(async (data) => {
             userId: userExists ? currentUserId : 0
         }
     })
+    await notify('INVENTORY_PRODUCT_DELETED', `"${product.name}" silindi. Son stok: ${product.currentStock} ${product.unit}`, session.fullName, { link: '/dashboard/inventory', priority: 'HIGH' })
 
     revalidatePath('/dashboard/inventory')
 }, DeleteProductSchema)
@@ -481,6 +490,7 @@ export const updateProduct = safeAction(async (data) => {
             userId: (await prisma.user.findUnique({ where: { id: parseInt(session.id) } })) ? parseInt(session.id) : 0
         }
     })
+    await notify('INVENTORY_PRODUCT_UPDATED', `"${name}" güncellendi.`, session.fullName, { link: '/dashboard/inventory' })
 
     revalidatePath('/dashboard/inventory')
 }, UpdateProductSchema)
@@ -512,6 +522,7 @@ export const bulkDeleteProducts = safeAction(async (data) => {
             userId: session.id
         }
     })
+    await notify('INVENTORY_PRODUCTS_DELETED', `Toplu silme: ${products.map(p => p.name).join(', ')}`, session.fullName, { link: '/dashboard/inventory', priority: 'HIGH' })
 
     revalidatePath('/dashboard/inventory')
 }, BulkDeleteSchema)

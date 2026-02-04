@@ -3,12 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateProduct, deleteProduct, getFilterOptions } from '@/app/actions/inventory'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
 
 export default function EditProductModal({ product, onClose, onUpdate }) {
     const [isLoading, setIsLoading] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [options, setOptions] = useState({ categories: [], units: [] })
     const router = useRouter()
+    const { addToast } = useToast()
+    const [confirmDelete, setConfirmDelete] = useState(false)
 
     useEffect(() => {
         getFilterOptions().then(res => {
@@ -29,41 +33,33 @@ export default function EditProductModal({ product, onClose, onUpdate }) {
                 startStock: formData.get('startStock')
             }
 
+            const q = parseFloat(data.startStock)
+            if (!data.name || !data.unit || !data.category) {
+                addToast('Tüm alanlar gerekli', 'error'); setIsLoading(false); return
+            }
+            if (Number.isNaN(q) || q < 0) {
+                addToast('Başlangıç stoğu 0 veya daha büyük olmalı', 'error'); setIsLoading(false); return
+            }
+
             const res = await updateProduct(data)
 
             if (res.success) {
+                addToast('Ürün güncellendi', 'success')
                 if (onUpdate) await onUpdate()
                 else router.refresh()
                 onClose()
             } else {
-                alert('Hata: ' + res.error)
+                addToast(res.error || 'Hata oluştu', 'error')
                 setIsLoading(false)
             }
         } catch (error) {
-            alert('Beklenmedik bir hata oluştu.')
+            addToast('Beklenmedik bir hata oluştu', 'error')
             setIsLoading(false)
         }
     }
 
     const handleDelete = async () => {
-        if (!confirm('Bu ürünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return
-
-        setIsDeleting(true)
-        try {
-            const res = await deleteProduct({ id: product.id })
-
-            if (res.success) {
-                if (onUpdate) await onUpdate()
-                else router.refresh()
-                onClose()
-            } else {
-                alert('Hata: ' + res.error)
-                setIsDeleting(false)
-            }
-        } catch (error) {
-            alert('Beklenmedik bir hata oluştu.')
-            setIsDeleting(false)
-        }
+        setConfirmDelete(true)
     }
 
     return (
@@ -168,6 +164,34 @@ export default function EditProductModal({ product, onClose, onUpdate }) {
                         </button>
                     </div>
                 </form>
+                <ConfirmModal
+                    open={confirmDelete}
+                    title="Ürün Sil"
+                    message="Bu ürünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+                    confirmText="Sil"
+                    cancelText="Vazgeç"
+                    onConfirm={async () => {
+                        setIsDeleting(true)
+                        try {
+                            const res = await deleteProduct({ id: product.id })
+                            if (res.success) {
+                                addToast('Ürün silindi', 'success')
+                                if (onUpdate) await onUpdate()
+                                else router.refresh()
+                                onClose()
+                            } else {
+                                addToast(res.error || 'Hata oluştu', 'error')
+                                setIsDeleting(false)
+                            }
+                        } catch (error) {
+                            addToast('Beklenmedik bir hata oluştu', 'error')
+                            setIsDeleting(false)
+                        } finally {
+                            setConfirmDelete(false)
+                        }
+                    }}
+                    onCancel={() => setConfirmDelete(false)}
+                />
             </div>
         </div>
     )

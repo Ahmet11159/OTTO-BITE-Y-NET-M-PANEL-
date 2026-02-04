@@ -2,11 +2,11 @@
 
 import { ITEM_CATEGORIES, STATUS_CONFIG, getCategoryIcon } from './constants'
 
-export default function LostItemDetailModal({ item, isAdmin, canEdit, onClose, onEdit, onReturn, onDispose, onDelete }) {
+export default function LostItemDetailModal({ item, isAdmin, canEdit, onClose, onEdit, onReturn, onDispose, onDelete, locale = 'tr-TR' }) {
     // Tarih formatla
     const formatDate = (date) => {
         if (!date) return '-'
-        return new Date(date).toLocaleDateString('tr-TR', {
+        return new Date(date).toLocaleDateString(locale, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
@@ -118,7 +118,7 @@ export default function LostItemDetailModal({ item, isAdmin, canEdit, onClose, o
                                     <p className="text-xs text-white/40">Müşteri Oturma Saati</p>
                                     <p className="text-white">
                                         {formatDate(item.sittingTime)}
-                                        {item.sittingEndTime && ` - ${new Date(item.sittingEndTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`}
+                                        {item.sittingEndTime && ` - ${new Date(item.sittingEndTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`}
                                     </p>
                                 </div>
                             )}

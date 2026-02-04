@@ -5,6 +5,7 @@
  import { revalidatePath } from 'next/cache'
  import { safeAction } from '@/lib/safe-action'
  import { z } from 'zod'
+import { notify } from '@/lib/notify'
  
  const DateRangeSchema = z.object({
    startDate: z.string().optional().nullable(),
@@ -153,6 +154,7 @@ const UpdateExpenseSchema = z.object({
      }
    })
  
+  await notify('CASH_EXPENSE_CREATED', `${data.category}: ${data.description} - ${data.amount}`, session.fullName, { link: '/dashboard/finance/cash-expenses' })
    revalidatePath('/dashboard/finance/cash-expenses')
   return created
  }, CreateExpenseSchema)
@@ -208,6 +210,7 @@ export const updateCashExpense = safeAction(async (data) => {
       receiptNumber: data.receiptNumber || null
     }
   })
+  await notify('CASH_EXPENSE_UPDATED', `${data.category}: ${data.description} - ${data.amount}`, session.fullName, { link: '/dashboard/finance/cash-expenses' })
   revalidatePath('/dashboard/finance/cash-expenses')
   return { updated: true }
 }, UpdateExpenseSchema)
@@ -219,6 +222,7 @@ export const deleteCashExpense = safeAction(async (data) => {
   }
   const id = typeof data === 'object' ? data.id : data
   await prisma.cashExpense.delete({ where: { id: parseInt(id) } })
+  await notify('CASH_EXPENSE_DELETED', `Nakit çıkış silindi #${id}`, session.fullName, { link: '/dashboard/finance/cash-expenses', priority: 'HIGH' })
   revalidatePath('/dashboard/finance/cash-expenses')
   return { deleted: true }
 }, z.object({ id: z.coerce.number() }))

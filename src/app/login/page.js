@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { login } from '@/app/actions/auth'
 import styles from './page.module.css'
 
 export default function LoginPage() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
+    const usernameRef = useRef(null)
+    const passwordRef = useRef(null)
+
+    useEffect(() => {
+        if (usernameRef.current) usernameRef.current.focus()
+    }, [])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -24,9 +30,17 @@ export default function LoginPage() {
             if (!res.success) {
                 setError(res.error)
                 setLoading(false)
+                const msg = (res.error || '').toLowerCase()
+                if (msg.includes('kullanıcı')) {
+                    if (usernameRef.current) usernameRef.current.focus()
+                } else {
+                    if (passwordRef.current) passwordRef.current.focus()
+                }
             }
-            // If success, the action will redirect, so we don't need to do anything here
         } catch (err) {
+            if (err && (err.message === 'NEXT_REDIRECT' || (err.digest && String(err.digest).startsWith('NEXT_REDIRECT')))) {
+                return
+            }
             setError('Bir hata oluştu.')
             setLoading(false)
         }
@@ -50,6 +64,8 @@ export default function LoginPage() {
                             className="input-field"
                             placeholder="Kullanıcı adınızı girin"
                             required
+                            ref={usernameRef}
+                            aria-invalid={!!error}
                         />
                     </div>
 
@@ -62,6 +78,8 @@ export default function LoginPage() {
                             className="input-field"
                             placeholder="Şifrenizi girin"
                             required
+                            ref={passwordRef}
+                            aria-invalid={!!error}
                         />
                     </div>
 
@@ -71,13 +89,13 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    <button 
-                        type="submit" 
-                        className="btn btn-primary" 
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
                         style={{ width: '100%', marginTop: '1rem' }}
                         disabled={loading}
                     >
-                        {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+                        {loading ? 'Yönlendiriliyor...' : 'Panele Gir'}
                     </button>
                 </form>
             </div>

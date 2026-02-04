@@ -91,6 +91,14 @@ export default async function DashboardHub() {
             {/* Modules Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <Card
+                    href="/dashboard/settings"
+                    title="Ayarlar"
+                    desc="Uygulama ve modül ayarlarını yönetin."
+                    icon={<svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4-1.343 4-3-1.79-3-4-3zm0 9c-4.418 0-8-2.239-8-5V8l8-4 8 4v4c0 2.761-3.582 5-8 5z" /></svg>}
+                    alerts={0}
+                    color="yellow"
+                />
+                <Card
                     href={reportLink}
                     title={session.role === 'ADMIN' ? 'Şef Raporları' : 'Raporlarım'}
                     desc="Günlük vardiye raporları, operasyonel notlar ve personel durumu."

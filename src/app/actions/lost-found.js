@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { safeAction } from '@/lib/safe-action'
 import { logger } from '@/lib/logger'
+import { notify } from '@/lib/notify'
 import { z } from 'zod'
 
 /**
@@ -96,6 +97,7 @@ export const createLostItem = safeAction(async (data) => {
     })
 
     logger.info(`Lost item created: ${data.itemName} by ${session.fullName}`)
+    await notify('LOST_ITEM_CREATED', `"${data.itemName}" kaydı oluşturuldu.`, session.fullName, { link: '/dashboard/lost-found' })
     revalidatePath('/dashboard/lost-found')
     revalidatePath('/dashboard')
     return item
@@ -250,6 +252,7 @@ export const returnItem = safeAction(async (data) => {
     })
 
     logger.info(`Lost item returned: ${item.itemName} to ${data.returnedTo} by ${session.fullName}`)
+    await notify('LOST_ITEM_RETURNED', `"${item.itemName}" teslim edildi (${data.returnedTo}).`, session.fullName, { link: '/dashboard/lost-found' })
     revalidatePath('/dashboard/lost-found')
     revalidatePath('/dashboard')
     return item
@@ -272,6 +275,7 @@ export const disposeItem = safeAction(async (data) => {
     })
 
     logger.info(`Lost item disposed: ${item.itemName} by ${session.fullName}`)
+    await notify('LOST_ITEM_DISPOSED', `"${item.itemName}" imha edildi.`, session.fullName, { link: '/dashboard/lost-found' })
     revalidatePath('/dashboard/lost-found')
     revalidatePath('/dashboard')
     return item
@@ -291,6 +295,7 @@ export const deleteLostItem = safeAction(async (data) => {
     })
 
     logger.info(`Lost item deleted: ${item.itemName} by ${session.fullName}`)
+    await notify('LOST_ITEM_DELETED', `"${item.itemName}" kaydı silindi.`, session.fullName, { link: '/dashboard/lost-found', priority: 'HIGH' })
     revalidatePath('/dashboard/lost-found')
     revalidatePath('/dashboard')
     return { deleted: true }

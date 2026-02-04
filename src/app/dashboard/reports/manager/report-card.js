@@ -1,13 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { addManagerNote, toggleReviewStatus, deleteReport } from '@/app/actions/report'
+import { getSettings } from '@/app/actions/settings'
 
 export default function ReportCard({ report, isManager = false, isOwnReport = false, forceExpanded = false, onViewDetail }) {
     const [expanded, setExpanded] = useState(false)
     const [toast, setToast] = useState(null)
     const [deleteConfirm, setDeleteConfirm] = useState(false)
+    const [locale, setLocale] = useState('tr-TR')
+
+    useEffect(() => {
+        getSettings()
+            .then(res => {
+                if (res.success && res.data?.general?.locale) {
+                    setLocale(String(res.data.general.locale))
+                }
+            })
+            .catch(() => {})
+    }, [])
 
     // If forced expanded, always true. Else local state.
     const isExpanded = forceExpanded || expanded
@@ -87,7 +99,7 @@ export default function ReportCard({ report, isManager = false, isOwnReport = fa
                             <div className="text-gray-400 text-xs font-medium uppercase tracking-wider flex items-center gap-2">
                                 <span className="text-gray-300">{report.author.fullName}</span>
                                 <span className="text-gray-600">•</span>
-                                <span suppressHydrationWarning>{new Date(report.createdAt).toLocaleString('tr-TR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                <span suppressHydrationWarning>{new Date(report.createdAt).toLocaleString(locale, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                         </div>
                     </div>

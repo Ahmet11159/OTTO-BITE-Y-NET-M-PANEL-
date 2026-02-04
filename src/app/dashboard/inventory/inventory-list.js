@@ -7,6 +7,9 @@ import NewProductModal from './new-product-modal'
 import FilterManagementModal from './filter-management-modal'
 import InventoryLogModal from './inventory-log-modal'
 import { bulkDeleteProducts, getInventory, getFilterOptions, addCategory, addUnit, getInventoryCountSchedule, updateInventoryCountSchedule, createInventoryCountReportNow, getLatestStockReport, checkAndRunInventoryCountSchedule, getStockReports, getStockReportById } from '@/app/actions/inventory'
+import { getSettings } from '@/app/actions/settings'
+import { useToast } from '@/app/providers/toast-provider'
+import ConfirmModal from '@/app/components/confirm-modal'
 
 export default function InventoryList({ initialProducts, userRole }) {
     const [products, setProducts] = useState(initialProducts)
@@ -23,9 +26,10 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [isDeleting, setIsDeleting] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+    const [confirmBulkOpen, setConfirmBulkOpen] = useState(false)
     const [activeView, setActiveView] = useState('table') // 'table' or 'cards'
     const [expandedProduct, setExpandedProduct] = useState(null)
-    const [toast, setToast] = useState(null)
+    const { addToast } = useToast()
     const [schedule, setSchedule] = useState(null)
     const [scheduleType, setScheduleType] = useState('LAST_DAY')
     const [dayOfMonth, setDayOfMonth] = useState(1)
@@ -39,13 +43,12 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [isReportModalOpen, setIsReportModalOpen] = useState(false)
     const [selectedReport, setSelectedReport] = useState(null)
     const [selectedReportData, setSelectedReportData] = useState(null)
+    const [searchInput, setSearchInput] = useState('')
+    const [locale, setLocale] = useState('tr-TR')
     const router = useRouter()
     const isAdmin = userRole === 'ADMIN'
 
-    const showToast = (message, type = 'error') => {
-        setToast({ message, type })
-        setTimeout(() => setToast(null), 4000)
-    }
+    const showToast = (message, type = 'error') => addToast(message, type)
 
     const fetchFilters = async () => {
         const res = await getFilterOptions()
@@ -144,10 +147,15 @@ export default function InventoryList({ initialProducts, userRole }) {
     const buildCsv = (reportData) => {
         if (!reportData?.items) return ''
         const header = ['Ürün', 'Kategori', 'Stok', 'Sayım', 'Fark', 'Birim']
+        const fmt = (v) => {
+            if (v === null || v === undefined || v === '') return ''
+            const n = Number(v)
+            return Number.isFinite(n) ? n.toLocaleString(locale) : String(v)
+        }
         const rows = reportData.items.map(item => [
             item.name || '',
             item.category || '',
-            item.currentStock ?? '',
+            fmt(item.currentStock),
             '',
             '',
             item.unit || ''
@@ -186,11 +194,15 @@ export default function InventoryList({ initialProducts, userRole }) {
     const buildReportHtml = (report, reportData) => {
         const items = reportData.items || []
         const totalStock = items.reduce((acc, item) => acc + (Number(item.currentStock) || 0), 0)
+        const fmtNum = (v) => {
+            const n = Number(v)
+            return Number.isFinite(n) ? n.toLocaleString(locale) : '-'
+        }
         const rows = items.map(item => `
             <tr>
                 <td>${escapeHtml(item.name || '')}</td>
                 <td>${escapeHtml(item.category || '-')}</td>
-                <td class="right">${escapeHtml(item.currentStock ?? '')}</td>
+                <td class="right">${escapeHtml(fmtNum(item.currentStock))}</td>
                 <td class="right"></td>
                 <td class="right"></td>
                 <td class="right">${escapeHtml(item.unit || '')}</td>
@@ -232,7 +244,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                             ${rows}
                         </tbody>
                     </table>
-                    <div class="summary">Toplam Ürün: ${items.length} • Toplam Stok: ${totalStock}</div>
+                    <div class="summary">Toplam Ürün: ${items.length} • Toplam Stok: ${fmtNum(totalStock)}</div>
                 </body>
             </html>
         `
@@ -284,11 +296,21 @@ export default function InventoryList({ initialProducts, userRole }) {
 
     useEffect(() => {
         fetchFilters()
+        getSettings().then(res => {
+            if (res.success && res.data?.general?.locale) {
+                setLocale(String(res.data.general.locale))
+            }
+        }).catch(() => {})
     }, [])
 
     useEffect(() => {
         fetchData()
     }, [startDate, endDate])
+
+    useEffect(() => {
+        const id = setTimeout(() => setSearchTerm(searchInput), 200)
+        return () => clearTimeout(id)
+    }, [searchInput])
 
     useEffect(() => {
         if (isAdmin) {
@@ -341,6 +363,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                 await fetchData()
                 setSelectedIds([])
                 setShowBulkConfirm(false)
+                setConfirmBulkOpen(false)
                 showToast(`${selectedIds.length} ürün silindi`, 'success')
             } else {
                 showToast('Hata: ' + res.error)
@@ -354,27 +377,7 @@ export default function InventoryList({ initialProducts, userRole }) {
 
     return (
         <div className="space-y-6">
-            {/* Premium Toast Notification */}
-            {toast && (
-                <div className={`fixed top-6 right-6 z-[100] px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transform transition-all duration-500 animate-slide-in-right backdrop-blur-xl ${toast.type === 'error'
-                    ? 'bg-gradient-to-r from-red-600/90 to-rose-600/90 text-white border border-red-400/30'
-                    : 'bg-gradient-to-r from-emerald-600/90 to-green-600/90 text-white border border-green-400/30'
-                    }`}
-                    style={{ boxShadow: toast.type === 'error' ? '0 20px 50px -10px rgba(239, 68, 68, 0.4)' : '0 20px 50px -10px rgba(16, 185, 129, 0.4)' }}
-                >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${toast.type === 'error' ? 'bg-white/20' : 'bg-white/20'}`}>
-                        {toast.type === 'error' ? (
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        ) : (
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        )}
-                    </div>
-                    <span className="font-medium text-sm">{toast.message}</span>
-                    <button onClick={() => setToast(null)} className="ml-2 p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-            )}
+            
 
             {/* Stats Dashboard */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -399,7 +402,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                                 <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
                             </div>
                         </div>
-                        <p className="text-3xl font-bold text-white">{stats.totalStock}</p>
+                        <p className="text-3xl font-bold text-white">{stats.totalStock.toLocaleString(locale)}</p>
                         <p className="text-xs text-gray-400 mt-1">Toplam Stok</p>
                     </div>
                 </div>
@@ -476,7 +479,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                             </div>
                             <div className="text-sm text-gray-400">
                                 {latestReport
-                                    ? `Son sayım: ${new Date(latestReport.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                                    ? `Son sayım: ${new Date(latestReport.createdAt).toLocaleString(locale, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
                                     : 'Henüz sayım listesi oluşturulmadı.'}
                             </div>
                         </div>
@@ -535,7 +538,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                                 </button>
                                 {schedule?.lastRunAt && (
                                     <span className="text-xs text-gray-500">
-                                        Son otomatik: {new Date(schedule.lastRunAt).toLocaleString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        Son otomatik: {new Date(schedule.lastRunAt).toLocaleString(locale, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 )}
                             </div>
@@ -558,7 +561,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                                 <div key={report.id} className="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5">
                                     <div>
                                         <div className="text-sm text-white">{report.period}</div>
-                                        <div className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                        <div className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString(locale, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
@@ -607,36 +610,13 @@ export default function InventoryList({ initialProducts, userRole }) {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                {showBulkConfirm ? (
-                                    <div className="flex items-center gap-3 animate-fade-in">
-                                        <span className="text-sm font-bold text-red-400">Seçili ürünler silinsin mi?</span>
-                                        <button
-                                            onClick={handleBulkDelete}
-                                            disabled={isDeleting}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl text-sm font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-600/20 flex items-center gap-2"
-                                        >
-                                            {isDeleting ? (
-                                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Siliniyor...</>
-                                            ) : (
-                                                <>Evet, Sil</>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={() => setShowBulkConfirm(false)}
-                                            className="px-6 py-2.5 bg-white/10 text-white rounded-xl text-sm font-bold hover:bg-white/20 transition-all"
-                                        >
-                                            Vazgeç
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowBulkConfirm(true)}
-                                        className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl text-sm font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-600/20 flex items-center gap-2"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        Seçilenleri Sil
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => setConfirmBulkOpen(true)}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl text-sm font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-600/20 flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    Seçilenleri Sil
+                                </button>
                             </div>
                         </div>
                     ) : (
@@ -647,8 +627,11 @@ export default function InventoryList({ initialProducts, userRole }) {
                                     <input
                                         type="text"
                                         placeholder="Ürün ara..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        value={searchInput}
+                                        onChange={(e) => setSearchInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Escape') setSearchInput('')
+                                        }}
                                         className="w-full bg-black/50 border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
                                     />
                                     <svg className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -818,7 +801,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                         </span>
                         <div className="flex items-center gap-4">
                             <span className="text-gray-500">
-                                Dönem: <span className="text-white font-medium">{new Date(startDate).toLocaleDateString('tr-TR')} - {new Date(endDate).toLocaleDateString('tr-TR')}</span>
+                                Dönem: <span className="text-white font-medium">{new Date(startDate).toLocaleDateString(locale)} - {new Date(endDate).toLocaleDateString(locale)}</span>
                             </span>
                         </div>
                     </div>
@@ -901,6 +884,15 @@ export default function InventoryList({ initialProducts, userRole }) {
                     }}
                 />
             )}
+            <ConfirmModal
+                open={confirmBulkOpen}
+                title="Toplu Silme"
+                message={`${selectedIds.length} ürünü silmek istediğinize emin misiniz?`}
+                confirmText="Sil"
+                cancelText="Vazgeç"
+                onConfirm={handleBulkDelete}
+                onCancel={() => setConfirmBulkOpen(false)}
+            />
         </div>
     )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getSettings } from '@/app/actions/settings'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,8 @@ export async function GET(request) {
 
     try {
         const now = new Date()
+        const settingsRes = await getSettings()
+        const locale = settingsRes.success && settingsRes.data?.general?.locale ? String(settingsRes.data.general.locale) : 'tr-TR'
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
         const aggregations = await prisma.stockTransaction.groupBy({
@@ -39,7 +42,7 @@ export async function GET(request) {
 
         await prisma.stockReport.create({
             data: {
-                period: now.toLocaleString('tr-TR', { month: 'long', year: 'numeric' }),
+                period: now.toLocaleString(locale, { month: 'long', year: 'numeric' }),
                 data: JSON.stringify(snapshot)
             }
         })

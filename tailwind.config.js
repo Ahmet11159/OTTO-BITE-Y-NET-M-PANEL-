@@ -6,6 +6,16 @@ module.exports = {
         "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
         "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
     ],
+    safelist: [
+        {
+            pattern: /(bg|text|border|shadow)-(emerald|purple|cyan|blue|rose|amber)-(50|100|200|300|400|500|600|700|800|900)/,
+            variants: ['hover', 'group-hover'],
+        },
+        {
+            pattern: /(bg|text|border)-(emerald|purple|cyan|blue|rose|amber)-500\/(10|20|30|40|50)/,
+            variants: ['hover', 'group-hover'],
+        },
+    ],
     theme: {
         extend: {
             colors: {

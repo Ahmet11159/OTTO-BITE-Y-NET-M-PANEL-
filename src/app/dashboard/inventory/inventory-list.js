@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import InventoryRow from './inventory-row'
 import NewProductModal from './new-product-modal'
 import FilterManagementModal from './filter-management-modal'
 import InventoryLogModal from './inventory-log-modal'
-import { bulkDeleteProducts, getInventory, getFilterOptions, addCategory, addUnit, getInventoryCountSchedule, updateInventoryCountSchedule, createInventoryCountReportNow, getLatestStockReport, checkAndRunInventoryCountSchedule, getStockReports, getStockReportById } from '@/app/actions/inventory'
+import { bulkDeleteProducts, getInventory, getFilterOptions, addCategory, addUnit, getInventoryCountSchedule, updateInventoryCountSchedule, createInventoryCountReportNow, getLatestStockReport, checkAndRunInventoryCountSchedule, getStockReports, getStockReportById, purgeDepartment } from '@/app/actions/inventory'
 import { getSettings } from '@/app/actions/settings'
 import { useToast } from '@/app/providers/toast-provider'
 import ConfirmModal from '@/app/components/confirm-modal'
@@ -20,6 +20,7 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [departmentFilter, setDepartmentFilter] = useState('all')
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [unitFilter, setUnitFilter] = useState('all')
+    const [isPurging, setIsPurging] = useState(false)
     const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
     const [filterOptions, setFilterOptions] = useState({ categories: [], units: [] })
@@ -48,6 +49,8 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [locale, setLocale] = useState('tr-TR')
     const router = useRouter()
     const isAdmin = userRole === 'ADMIN'
+    const [isScheduleLoaded, setIsScheduleLoaded] = useState(false)
+    const isFirstRangeLoadRef = useRef(true)
 
     const showToast = (message, type = 'error') => addToast(message, type)
 
@@ -305,6 +308,10 @@ export default function InventoryList({ initialProducts, userRole }) {
     }, [])
 
     useEffect(() => {
+        if (isFirstRangeLoadRef.current) {
+            isFirstRangeLoadRef.current = false
+            return
+        }
         fetchData()
     }, [startDate, endDate])
 
@@ -312,12 +319,6 @@ export default function InventoryList({ initialProducts, userRole }) {
         const id = setTimeout(() => setSearchTerm(searchInput), 200)
         return () => clearTimeout(id)
     }, [searchInput])
-
-    useEffect(() => {
-        if (isAdmin) {
-            loadSchedule()
-        }
-    }, [isAdmin])
 
     const filteredProducts = products.filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -375,6 +376,30 @@ export default function InventoryList({ initialProducts, userRole }) {
         } finally {
             setIsDeleting(false)
         }
+    }
+
+    const handlePurgeSarf = async () => {
+        setIsPurging(true)
+        try {
+            const res = await purgeDepartment({ dept: 'Sarf Malzeme' })
+            if (res.success) {
+                await fetchFilters()
+                await fetchData()
+                showToast('Sarf Malzeme departmanı kaldırıldı.', 'success')
+            } else {
+                showToast(res.error || 'Departman kaldırılamadı.')
+            }
+        } catch (e) {
+            showToast(e.message || 'Departman kaldırılamadı.')
+        } finally {
+            setIsPurging(false)
+        }
+    }
+
+    const handleLoadSchedule = async () => {
+        if (isScheduleLoaded) return
+        await loadSchedule()
+        setIsScheduleLoaded(true)
     }
 
     return (
@@ -471,6 +496,14 @@ export default function InventoryList({ initialProducts, userRole }) {
                                     <h3 className="text-lg font-semibold text-white">Depo Sayım Listesi</h3>
                                     <p className="text-sm text-gray-400">İstediğiniz anda sayım listesi oluşturun veya otomatik zamanlayın.</p>
                                 </div>
+                                {isAdmin && !isScheduleLoaded && (
+                                    <button
+                                        onClick={handleLoadSchedule}
+                                        className="px-3 py-2 rounded-xl bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10 text-xs"
+                                    >
+                                        Raporları Yükle
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleGenerateReport}
                                     disabled={isReportGenerating}
@@ -676,7 +709,7 @@ export default function InventoryList({ initialProducts, userRole }) {
                                                 .map(c => (c.name || '').split(' / ')[0])
                                                 .filter(Boolean)
                                         )]
-                                            .filter(d => d !== 'Yiyecek' && d !== 'İçecek')
+                                            .filter(d => d !== 'Yiyecek' && d !== 'İçecek' && d !== 'Sarf Malzeme')
                                             .map(d => (
                                             <option key={d} value={d}>{d}</option>
                                         ))}
@@ -739,6 +772,16 @@ export default function InventoryList({ initialProducts, userRole }) {
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     Yeni Ürün
                                 </button>
+                            {isAdmin && (
+                                <button
+                                    onClick={handlePurgeSarf}
+                                    disabled={isPurging}
+                                    className="px-4 py-2.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 rounded-xl text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <svg className={`w-4 h-4 ${isPurging ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v6m6-6v6M4 6h16M4 18h16" /></svg>
+                                    Sarf Malzeme’yi kaldır
+                                </button>
+                            )}
                             </div>
                         </div>
                     )}

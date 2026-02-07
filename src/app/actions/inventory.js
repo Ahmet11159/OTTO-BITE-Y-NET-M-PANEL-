@@ -53,6 +53,20 @@ const DeleteMetaSchema = z.object({
     id: z.coerce.number()
 })
 
+const PurgeDepartmentSchema = z.object({
+    dept: z.string().min(1, 'Departman adı zorunludur')
+})
+
+const UpdateCategoryMetaSchema = z.object({
+    id: z.coerce.number(),
+    name: z.string().min(1, 'Kategori adı zorunludur')
+})
+
+const UpdateUnitMetaSchema = z.object({
+    id: z.coerce.number(),
+    name: z.string().min(1, 'Birim adı zorunludur')
+})
+
 const InventoryCountScheduleSchema = z.object({
     isEnabled: z.boolean(),
     scheduleType: z.enum(['LAST_DAY', 'DAY_OF_MONTH']),
@@ -575,435 +589,8 @@ export const getInventoryLogs = safeAction(async () => {
 })
 
 export const getFilterOptions = safeAction(async () => {
-    const defaultUnits = ['ADET', 'lt', 'kg', 'paket', 'koli', 'top', 'set']
-    for (const u of defaultUnits) {
-        const exists = await prisma.unit.findFirst({ where: { name: u } })
-        if (!exists) {
-            await prisma.unit.create({ data: { name: u } })
-        }
-    }
-    const deptCats = [
-        { dept: 'Servis Departmanı', cats: ['Temizlik - Hijyen Malzemeleri', 'Servis Tabakları', 'Servis Çatal - Bıçak', 'Servis Gümüş Tabaklar', 'Demirbaşlar', 'Personel Kıyafet'] },
-        { dept: 'Kasa Departmanı', cats: ['Kırtasiye Malzemeleri', 'Operasyon Malzemeleri'] },
-        { dept: 'Mutfak – Tezgah Departmanı', cats: ['10’lu Kibrit Kutu Lokumlar', '20’li Kibrit Kutu Lokumlar', 'Teneke Lokumlar', 'Poşet Lokumlar ve Kurabiyeler – 250 Gramlıklar', 'Poşet Lokumlar ve Kurabiyeler – 100 Gramlıklar', 'Şekerlemeler', 'Kavanoz Gıdalar', 'Kutular'] },
-        { dept: 'Bar Departmanı', cats: ['Donuk Ürünler', 'Kahve – Çay – Bitki Çayı', 'Soft İçecekler', 'Süt Ürünleri', 'Perakende Ürünler', 'Tatlı İçecek Ürünler', 'Al Götür Ekipmanlar', 'Demirbaşlar', 'Temizlik Malzemeleri', 'Fincanlar', 'Bar – Fincan Altlık'] }
-    ]
-    for (const d of deptCats) {
-        for (const c of d.cats) {
-            const name = `${d.dept} / ${c}`
-            const exists = await prisma.category.findFirst({ where: { name } })
-            if (!exists) {
-                await prisma.category.create({ data: { name } })
-            }
-        }
-    }
     const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } })
     const units = await prisma.unit.findMany({ orderBy: { name: 'asc' } })
-    const seed = [
-            { dept: 'Servis Departmanı', cat: 'Temizlik - Hijyen Malzemeleri', items: [
-                'Diversey Bulaşık Deterjanı Makina 20LT',
-                'Diversey El Bulaşık Sabunu 20LT',
-                'Diversey Kireç Çözücü 20LT',
-                'Diversey Parlatıcı 20LT',
-                'Domestos Çamaşır Suyu 3,2LT',
-                'Sıvı Arap Sabunu 5LT',
-                'Cam Sil 1LT',
-                'Battal Boy Çöp Torbası',
-                'Mavi Eldiven Paket 100’lü',
-                'Beyaz Eldiven Paket 100’lü',
-                'Logolu Servis Peçetesi Koli 1920 Adet',
-                'Logolu Servis Peçetesi Koli 2400 Adet',
-                'Servis Islak Mendil Koli 500 Adet',
-                'Ekmekli Rulo Kağıt',
-                'Bingo Islak Mendil',
-                'Cam Bez',
-                'Mikrofiber Bez',
-                'Güderi Bez',
-                'Bulaşık Süngeri',
-                'Bulaşık Teli',
-                'Vileda Kova Kapağı',
-                'Vileda Mop',
-                'Vileda Paspas Ucu Saçaklı',
-                'Uzatmalı Temizlik Başlığı',
-                'Vileda Kovası',
-                'Shark Makine İlacı',
-                'Gümüş Parlatma İlacı',
-                'Gümüş Parlatma Bezi',
-                'Beyaz Sirke',
-                'Dose Leke Çıkarıcı'
-            ]},
-            { dept: 'Servis Departmanı', cat: 'Servis Tabakları', items: [
-                'Imperial Orta Pembe Servis Tabak',
-                'Imperial Küçük Mavi Servis Tabak',
-                'Classic Rose Lacivert-Gold Küçük Servis Tabak',
-                'Classic Rose Lacivert-Gold Orta Servis Tabak',
-                'Classic Rose Lacivert-Gold Büyük Servis Tabak',
-                'Classic Rose Lacivert-Gold Kayık Servis Tabak',
-                'Weinnar Porselen Sos Tabağı',
-                'Weinnar Porselen Sosluk',
-                'Weinnar Porselen Büyük Şekerlik',
-                'Weinnar Porselen Şekerlik',
-                'Weinnar Porselen Salata Kasesi',
-                'Weinnar Porselen Çorba Kasesi',
-                'Weinnar Porselen Tuzluk',
-                'Weinnar Porselen Büyük Çukur Tabak',
-                'Weinnar Porselen Büyük Kayık Tabak',
-                'Weinnar Porselen Küçük Kayık Tabak',
-                'Weinnar Porselen Kruvasan Tabağı Orta',
-                'Weinnar Porselen Ciğer Tabağı Büyük',
-                'Furstenberg Porselen Lacivert-Gold Tabak',
-                'Furstenberg Porselen Beyaz-Gold Tabak'
-            ]},
-            { dept: 'Servis Departmanı', cat: 'Servis Çatal - Bıçak', items: [
-                'Gümüş Tatlı Çatalı',
-                'Gümüş Tatlı Bıçağı',
-                'Gümüş Tatlı Kaşığı',
-                'Gümüş Yemek Çatalı',
-                'Gümüş Yemek Bıçağı',
-                'Gümüş Yemek Kaşığı',
-                'Jumbo Yemek Bıçağı'
-            ]},
-            { dept: 'Servis Departmanı', cat: 'Servis Gümüş Tabaklar', items: [
-                'Gümüş Oval Tabak',
-                'Gümüş Dikdörtgen Tabak',
-                'Gümüş Yuvarlak Küçük Tabak',
-                'Gümüş Yuvarlak Orta Tabak'
-            ]},
-            { dept: 'Servis Departmanı', cat: 'Demirbaşlar', items: [
-                'Gümüş Masa Vazoları',
-                'Gümüş Masa Servis Seti (14 Parça Masa)',
-                'Mama Sandalyesi',
-                'Küllabası',
-                'Servis Tepsisi Büyük',
-                'Servis Tepsisi Orta'
-            ]},
-            { dept: 'Servis Departmanı', cat: 'Personel Kıyafet', items: [
-                'Şef Pantolonu 36 Beden',
-                'Şef Pantolonu 46 Beden',
-                'Pantolon S Beden',
-                'Pantolon M Beden',
-                'Gömlek M Beden',
-                'Gömlek L Beden',
-                'Gömlek XL Beden',
-                'Polar XS Beden',
-                'Pantolon L Beden (Defolu)',
-                'Pantolon XXL Beden (Defolu)'
-            ]},
-            { dept: 'Kasa Departmanı', cat: 'Kırtasiye Malzemeleri', items: [
-                'A4 Kağıt (Top / 500’lü)',
-                'Zımba Teli (Paket)',
-                'Etiket Tarih Makinası',
-                'Makas',
-                'Sümen',
-                'Koli Bandı',
-                'Falcata',
-                'Zımba Makine',
-                'Raptiye',
-                'Paket Lastiği Paket 700’lü'
-            ]},
-            { dept: 'Kasa Departmanı', cat: 'Operasyon Malzemeleri', items: [
-                'Büyük Yazıcı Fişi 10’lu',
-                'Küçük Yazıcı Fişi 10’lu',
-                'Kürdan Kutu Paket 1000’li',
-                'Pasta Mum Paket 6’lı',
-                'Kibrit Koli X300',
-                'Şarj Aleti',
-                'QR Menü',
-                'Değerlendirme QR'
-            ]}
-        ,
-        { dept: 'Mutfak – Tezgah Departmanı', cat: '10’lu Kibrit Kutu Lokumlar', items: [
-            'Çifte Kavrulmuş Antep Fıstıklı Lokum 320 gr',
-            'Çifte Kavrulmuş Fındıklı Lokum 320 gr',
-            'Çifte Kavrulmuş Narlı - Fıstıklı Lokum 280 gr',
-            'Çikolata Kaplı Antep Fıstıklı Lokum 300 gr',
-            'Çikolata Kaplı Antep Fıstıklı Lokum 350 gr',
-            'Fındıklı Lokum 300 gr',
-            'Fıstıklı Lokum 300 gr',
-            'Güllü Lokum 300 gr',
-            'Karamelli Lokum 300 gr',
-            'Nar Aromalı Antep Fıstıklı Lokum 300 gr',
-            'Nar Aromalı Fıstıklı Lokum 300 gr',
-            'Nar Aromalı Fındıklı Lokum 325 gr',
-            'Narlı Fıstıklı Lokum 300 gr',
-            'Nar ve Portakal Aromalı Fıstıklı Fitil Lokum 325 gr',
-            'Parmak Fitil Lokum 180 gr',
-            'Portakal Aromalı Fıstıklı Fitil Lokum 300 gr',
-            'Portakallı Lokum 300 gr'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: '20’li Kibrit Kutu Lokumlar', items: [
-            'Çifte Kavrulmuş Antep Fıstıklı Lokum 600 gr',
-            'Çifte Kavrulmuş Antep Fıstıklı Lokum 650 gr',
-            'Çifte Kavrulmuş Fındıklı Lokum 660 gr',
-            'Çikolata Kaplı Antep Fıstıklı Lokum 600 gr',
-            'Çikolata Kaplı Antep Fıstıklı Lokum 700 gr',
-            'Fındıklı Lokum 600 gr',
-            'Fındıklı Lokum 700 gr',
-            'Fıstıklı Lokum 700 gr',
-            'Güllü Lokum 700 gr',
-            'Karamelli Lokum 725 gr',
-            'Nar Aromalı Fıstıklı Fitil Lokum 600 gr',
-            'Narlı Fıstıklı Lokum 700 gr',
-            'Nar-Portakal Aromalı Fıstıklı Fitil Lokum 550 gr',
-            'Parmak Fitil Lokum 415 gr',
-            'Portakallı Fitil Lokum 600 gr',
-            'Portakal Aromalı Fıstıklı Fitil Lokum 480 gr',
-            'Portakallı Lokum 880 gr',
-            'Nar Aromalı Antep Fıstıklı Lokum 600 gr',
-            'Special Lokum 470 gr'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Teneke Lokumlar', items: [
-            'Otto Karamelli Lokum 250 gr',
-            'Otto Narlı Antep Fıstıklı Lokum 250 gr'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Poşet Lokumlar ve Kurabiyeler – 250 Gramlıklar', items: [
-            'Otto Çifte Kavrulmuş Antep Fıstıklı Lokum 250 gr',
-            'Otto Narlı Antep Fıstıklı Lokum 250 gr',
-            'Otto Poşet Kuş Lokumu 250 gr',
-            'Otto Çikolata Kaplı Antep Fıstıklı Lokum 250 gr',
-            'Otto Karamelli Lokum 250 gr'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Poşet Lokumlar ve Kurabiyeler – 100 Gramlıklar', items: [
-            'Otto Çifte Kavrulmuş Fıstıklı Lokum 100 gr',
-            'Otto Çifte Kavrulmuş Fındıklı Lokum 100 gr',
-            'Otto Portakal Aromalı Antep Fıstıklı Fitil Lokum 100 gr',
-            'Otto Narlı Antep Fıstıklı Fitil Lokum 100 gr',
-            'Otto Kuş Lokumu 100 gr',
-            'Otto Narlı Antep Fıstıklı Lokum 100 gr',
-            'Otto Susamlı Hurmalı Kurabiye Paket 6’lı'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Şekerlemeler', items: [
-            'Fındıklı Akide Şekeri 200 gr',
-            'Portakallı Akide Şekeri 200 gr',
-            'Limonlu Akide Şekeri 200 gr',
-            'Tarçınlı Akide Şekeri 200 gr',
-            'Karanfilli Akide Şekeri 200 gr',
-            'Susamlı Akide Şekeri 200 gr',
-            'Badem Şekeri 150 gr',
-            'Badem Şekeri 2 kg',
-            'Fıstık Şekeri 150 gr',
-            'Fıstık Şekeri 2 kg',
-            'İran Şekeri 1 kg'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Kavanoz Gıdalar', items: [
-            'Otto Çiçek Balı 350 gr',
-            'Otto Tahin 300 gr',
-            'Otto Antep Fıstık Ezmesi 380 gr'
-        ]},
-        { dept: 'Mutfak – Tezgah Departmanı', cat: 'Kutular', items: [
-            'Kibrit Dikdörtgen 10’lu Kutu',
-            'Kibrit Dikdörtgen 20’li Kutu',
-            'Premium Special Kutu',
-            'Pencereli Şekerleme Kutu Sarı',
-            'Pencereli Şekerleme Kutu Kırmızı',
-            'Küçük Kare Pasta Kutusu',
-            'Orta Dikdörtgen Pasta Kutusu',
-            'Büyük Kare Pasta Kutusu',
-            'Küçük Kare Pasta Altlığı',
-            'Orta Dikdörtgen Pasta Altlığı',
-            'Büyük Kare Pasta Altlığı',
-            'Paket Tart Altlığı',
-            'Yeşil Küçük Poşet',
-            'Kırmızı Orta Poşet',
-            'Kırmızı Büyük Poşet',
-            'Yeşil Poşet Altlıklı Dikdörtgen',
-            'Kırmızı Orta Boy Poşet Altlığı',
-            'Kırmızı Büyük Boy Poşet Altlığı',
-            'Pelur Kağıt Kutu İçi',
-            'Orta Sticker Rulo Kağıt',
-            'Orta Sticker A4 Kağıt',
-            'Küçük Sticker 100’lü Kağıt',
-            'Küçük Sticker 200’lü Kağıt',
-            'Şeffaf Poşet 20’li Paket',
-            'Lokum Kürdan 500’lü Paket'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Donuk Ürünler', items: [
-            'Viyana Kahvesi Limonata 1 Litre',
-            'Viyana Kahvesi Portakal Suyu 1 Litre',
-            'Viyana Kahvesi Nar Suyu 1 Litre',
-            'Viyana Kahvesi Cool Lime 1 Litre',
-            'Viyana Kahvesi Berry Hibiscus 1 Litre',
-            'Tikevsi Salep 1 Litre',
-            'Otto Bite Özel Yayım Cold Brew 2 Litre',
-            'Viyana Kahvesi Cold Brew 1 Litre'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Kahve – Çay – Bitki Çayı', items: [
-            'Spada Motion Espresso 1 kg',
-            'Spada Motion Espresso 2 kg',
-            'Spada Popayan Kolombiya 1 kg',
-            'Spada Huila Kolombiya 1 kg',
-            'Mehmet Efendi Türk Kahvesi 100 gr Paket x24’lü',
-            'Tahmis Menengiç Kahvesi 500 gr',
-            'Tahmis Osmanlı Kahvesi 500 gr',
-            'Tahmis Dibek Kahvesi 500 gr',
-            'Balküpü Küp Şeker',
-            'Çaykur Poşet Altınbaş Çay 1 kg',
-            'Çaykur Altınbaş Kutu Çay 1 kg',
-            'Çaykur Poşet Tomurcuk Çay 1 kg',
-            'Ofçay Early Green 320 gr',
-            'Ginger Power 250 gr',
-            'Fıstık Bitki Çayı 250 gr',
-            'Çikolata Bitki Çayı 250 gr',
-            'Ceviz Bitki Çayı 250 gr',
-            'Jasmine Jade 250 gr'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Soft İçecekler', items: [
-            'Kula Soda Paket 24’lü',
-            'San Pellegrino Limonlu Paket 4’lü',
-            'San Pellegrino Portakallı Paket 4’lü',
-            'San Pellegrino Paket 6’lı',
-            'Kestane Su Paket 24’lü',
-            'Chaika Peach Tea Paket 24’lü',
-            'Chaika Cool Lime Paket 24’lü',
-            'Chaika Pina Colada Paket 24’lü'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Süt Ürünleri', items: [
-            'Pınar Art Sütü 1 Litre',
-            'Pınar Laktozsuz Süt 1 Litre',
-            'Pınar UHT Süt 1 Litre',
-            'Pınar Badem Sütü 1 Litre',
-            'Pınar Yulaf Sütü 1 Litre'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Perakende Ürünler', items: [
-            'Spada Huila Kolombiya 250 gr',
-            'Spada Popayan Kolombiya 250 gr',
-            'Spada Motion Espresso 250 gr',
-            'Spada Türk Kahvesi 250 gr',
-            'Soy Cezve Büyük',
-            'Soy Cezve Orta',
-            'Soy Cezve Küçük'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Tatlı İçecek Ürünler', items: [
-            'Kestane Püresi 320 gr',
-            'Ballı Fındık Kreması 320 gr',
-            'Hurma Püresi 320 gr',
-            'Beyaz Pul Çikolata 10 kg',
-            'Siyah Tablet Çikolata 10 kg',
-            'Sprey Krema 320 gr',
-            'Marshmallow Paket'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Al Götür Ekipmanlar', items: [
-            'Take Away Karton Büyük Bardak Fişek x38’li',
-            'Take Away Karton Küçük Bardak Fişek x38’li',
-            'Take Away Ice Bardak Fişek x38’li',
-            'Take Away Karton Büyük Bardak Kapağı Fişek x38’li',
-            'Take Away Karton Küçük Bardak Kapağı Fişek x38’li',
-            'Take Away Ice Bardak Kapağı Fişek x38’li',
-            'Bambu Pipet Büyük Poşet x100',
-            'Bambu Pipet Küçük Poşet x100'
-        ]}
-        ,
-        { dept: 'Bar Departmanı', cat: 'Demirbaşlar', items: [
-            'Soy Cezve Büyük',
-            'Soy Cezve Küçük',
-            'Maxi Boy Cezve',
-            'Quin Spin',
-            'Pitcher',
-            'Porselen Süt Potu',
-            'Karaca Türk Kahve Makinası',
-            'Zara Kavanoz',
-            'Anonim Marka Kavanoz',
-            'Jumbo Kavanoz',
-            'Çekirdek Kahve Öğütücü',
-            'Kahve Press Makinası',
-            'Filtre Kahve Makinası',
-            'Sabri Güzen Çay Kaşığı',
-            'Zara Karıştırma Kaşığı',
-            'Üçgen Gümüş Krema Kaşığı',
-            'Zara Bitki Çayı Potu',
-            'French Press',
-            'Bez Altı Tahtalar',
-            'Hassas Terazi',
-            'Remta Benmari Makinesi',
-            'Remta Benmari Fişek Sosluk',
-            'Kahramanlar Demlik',
-            'Bitki Çayı Tepsisi',
-            'Espresso Kaşığı'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Temizlik Malzemeleri', items: [
-            'Pully Caff 900 gr',
-            'Pully Grind 150 gr',
-            'Pully Milk 1000 ml',
-            'D9',
-            'Barista Bez Seti (Pembe x2 – Sarı x2 – Mavi x2 – Yeşil x2 – Mavi Cam Bezi x2)',
-            'Domestos Köpük 1 LT',
-            'Asperox 1 LT',
-            'Limonlu Cif 1 LT',
-            'Bej Bulaşık Süngeri Paket 8’li'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Fincanlar', items: [
-            'Imperial Mavi Fincan',
-            'Imperial Pembe Fincan',
-            'Imperial Double Türk Kahvesi Fincanı',
-            'Imperial Kupa',
-            'Imperial El Boyaması Fincan Altlığı',
-            'Imperial El Boyaması Fincan',
-            'Imperial El Boyaması Servis Tabağı',
-            'Weimar Porselen Beyaz Fincan',
-            'Weimar Türk Kahvesi Single Fincan',
-            'Jumbo Çay Bardağı',
-            'Jumbo Çift Cidarlı Küçük Bardak',
-            'Jumbo Çift Cidarlı Kulplu Büyük Bardak',
-            'Jumbo Çift Cidarlı Kulplu Bitki Çayı Bardağı',
-            'Kristal Şerbet Bardağı',
-            'RCR Kahve Yanı Su Bardağı',
-            'Un Helvası Cam Joker',
-            'Jumbo Çift Cidarlı Kahve Yanı Su Bardağı',
-            'Classic Rose Lacivert Single Espresso Fincanı',
-            'Classic Rose Lacivert Büyük Fincan',
-            'Özel Gümüş Beyaz Espresso Fincanı',
-            'RCR Kristal Su Bardağı',
-            'RCR Kristal Long Bardak',
-            'Vintage Kahve Fincan Takımı 6’lı Set (Çiçekli El Boyaması 6 Fincan + 6 Fincan Altı)',
-            'Vintage Kahve Fincanı Takımı 14’lü Set (14 Kahve Fincanı + 15 Fincan Altlığı)',
-            'El Boyaması Su Yeşili Takım (3 Porselen + 1 Fincan + 1 Fincan Altı)',
-            'Classic Rose Vintage Takım (3 Porselen + 6 Fincan Altlığı + 2 Fincan)'
-        ]},
-        { dept: 'Bar Departmanı', cat: 'Bar – Fincan Altlık', items: [
-            'Mavi Imperial Fincan Altlığı',
-            'Pembe Imperial Fincan Altlığı',
-            'Imperial Double Pembe Türk Kahvesi Fincan Altlığı',
-            'Imperial Kupa Altlığı',
-            'Weimar Beyaz Latte Fincan Altlığı',
-            'Weimar Beyaz Kahve Fincan Altlığı',
-            'Gümüş Çay Bardağı Altlığı',
-            'Gümüş Küçük Beyaz Espresso Fincan Altlığı',
-            'Classic Rose Lacivert Single Espresso Fincan Altlığı',
-            'Classic Rose Lacivert Büyük Fincan Altlığı',
-            'Take Away Karton Yumurta Altlığı 100’lü',
-            'Take Away Bardak Tıkacı 100’lü',
-            'Otto Karton Bardak Altlığı'
-        ]}
-    ]
-    function unitFor(name) {
-        const n = name.toLowerCase()
-        if (n.includes('litre') || n.includes('liter') || n.includes(' lt')) return 'lt'
-        if (n.includes('kg')) return 'kg'
-        if (n.includes('koli')) return 'koli'
-        if (n.includes('paket')) return 'paket'
-        if (n.includes('top')) return 'top'
-        if (n.includes('set')) return 'set'
-        return 'ADET'
-    }
-    for (const group of seed) {
-        const categoryName = `${group.dept} / ${group.cat}`
-        for (const item of group.items) {
-            const exists = await prisma.product.findFirst({ where: { name: item } })
-            if (!exists) {
-                await prisma.product.create({
-                    data: {
-                        name: item,
-                        unit: unitFor(item),
-                        category: categoryName,
-                        startStock: 0,
-                        currentStock: 0,
-                        lastReset: new Date()
-                    }
-                })
-            }
-        }
-    }
-    revalidatePath('/dashboard/inventory')
     return { categories, units }
 })
 
@@ -1026,6 +613,104 @@ export const addUnit = safeAction(async (data) => {
     revalidatePath('/dashboard/inventory')
     return unit
 }, UnitSchema)
+
+export const updateCategoryMeta = safeAction(async (data) => {
+    const session = await getSession()
+    if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
+
+    const { id, name } = data
+    const category = await prisma.category.findUnique({ where: { id } })
+    if (!category) throw new Error('Kategori bulunamadı.')
+
+    const existing = await prisma.category.findFirst({
+        where: {
+            name,
+            NOT: { id }
+        }
+    })
+    if (existing) throw new Error('Bu isimde bir kategori zaten var.')
+
+    const oldName = category.name
+
+    const updated = await prisma.category.update({
+        where: { id },
+        data: { name }
+    })
+
+    await prisma.product.updateMany({
+        where: { category: oldName },
+        data: { category: name }
+    })
+
+    try {
+        const currentUserId = session?.id ? parseInt(session.id) : 0
+        const userExists = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId } }) : null
+
+        await prisma.inventoryLog.create({
+            data: {
+                actionType: 'UPDATE',
+                productName: 'Kategori',
+                details: `Kategori adı değişti: ${oldName} → ${name}`,
+                userName: session?.fullName || 'Sistem',
+                userId: userExists ? currentUserId : 0
+            }
+        })
+    } catch (e) {
+        logger.error('Failed to log category update', e)
+    }
+
+    revalidatePath('/dashboard/inventory')
+    return updated
+}, UpdateCategoryMetaSchema)
+
+export const updateUnitMeta = safeAction(async (data) => {
+    const session = await getSession()
+    if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
+
+    const { id, name } = data
+    const unit = await prisma.unit.findUnique({ where: { id } })
+    if (!unit) throw new Error('Birim bulunamadı.')
+
+    const existing = await prisma.unit.findFirst({
+        where: {
+            name,
+            NOT: { id }
+        }
+    })
+    if (existing) throw new Error('Bu isimde bir birim zaten var.')
+
+    const oldName = unit.name
+
+    const updated = await prisma.unit.update({
+        where: { id },
+        data: { name }
+    })
+
+    await prisma.product.updateMany({
+        where: { unit: oldName },
+        data: { unit: name }
+    })
+
+    try {
+        const currentUserId = session?.id ? parseInt(session.id) : 0
+        const userExists = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId } }) : null
+
+        await prisma.inventoryLog.create({
+            data: {
+                actionType: 'UPDATE',
+                productName: 'Birim',
+                details: `Birim adı değişti: ${oldName} → ${name}`,
+                userName: session?.fullName || 'Sistem',
+                userId: userExists ? currentUserId : 0
+            }
+        })
+    } catch (e) {
+        logger.error('Failed to log unit update', e)
+    }
+
+    revalidatePath('/dashboard/inventory')
+    return updated
+}, UpdateUnitMetaSchema)
 
 export const deleteCategory = safeAction(async (data) => {
     const session = await getSession()
@@ -1099,3 +784,91 @@ export const deleteUnit = safeAction(async (data) => {
 
     revalidatePath('/dashboard/inventory')
 }, DeleteMetaSchema)
+
+export const purgeDepartment = safeAction(async (data) => {
+    const session = await getSession()
+    if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
+    const { dept } = data
+
+    const categories = await prisma.category.findMany({
+        where: {
+            OR: [
+                { name: { equals: dept } },
+                { name: { startsWith: `${dept} /` } }
+            ]
+        }
+    })
+
+    let deletedProducts = 0
+    let detachedProducts = 0
+    let deletedCategories = 0
+
+    for (const cat of categories) {
+        const products = await prisma.product.findMany({
+            where: { category: cat.name }
+        })
+        for (const p of products) {
+            const activeOrderItems = await prisma.orderItem.findMany({
+                where: { productId: p.id, isAddedToStock: false },
+                take: 1
+            })
+            if (activeOrderItems.length > 0) {
+                await prisma.product.update({
+                    where: { id: p.id },
+                    data: { category: null }
+                })
+                detachedProducts++
+                try {
+                    const currentUserId = session?.id ? parseInt(session.id) : 0
+                    const userExists = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId } }) : null
+                    await prisma.inventoryLog.create({
+                        data: {
+                            actionType: 'UPDATE',
+                            productName: p.name,
+                            details: `Departman temizliği: "${dept}" • Ürün kategori bağlantısı kaldırıldı (${cat.name})`,
+                            userName: session?.fullName || 'Sistem',
+                            userId: userExists ? currentUserId : 0
+                        }
+                    })
+                } catch (e) {}
+            } else {
+                await prisma.product.delete({ where: { id: p.id } })
+                deletedProducts++
+                try {
+                    const currentUserId = session?.id ? parseInt(session.id) : 0
+                    const userExists = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId } }) : null
+                    await prisma.inventoryLog.create({
+                        data: {
+                            actionType: 'DELETE',
+                            productName: p.name,
+                            details: `Departman temizliği: "${dept}" • Ürün silindi (${cat.name})`,
+                            userName: session?.fullName || 'Sistem',
+                            userId: userExists ? currentUserId : 0
+                        }
+                    })
+                } catch (e) {}
+            }
+        }
+        const usageCount = await prisma.product.count({ where: { category: { equals: cat.name } } })
+        if (usageCount === 0) {
+            await prisma.category.delete({ where: { id: cat.id } })
+            deletedCategories++
+            try {
+                const currentUserId = session?.id ? parseInt(session.id) : 0
+                const userExists = currentUserId ? await prisma.user.findUnique({ where: { id: currentUserId } }) : null
+                await prisma.inventoryLog.create({
+                    data: {
+                        actionType: 'DELETE',
+                        productName: 'Kategori',
+                        details: `Departman temizliği: "${dept}" • Kategori silindi (${cat.name})`,
+                        userName: session?.fullName || 'Sistem',
+                        userId: userExists ? currentUserId : 0
+                    }
+                })
+            } catch (e) {}
+        }
+    }
+
+    revalidatePath('/dashboard/inventory')
+    return { deletedProducts, detachedProducts, deletedCategories }
+}, PurgeDepartmentSchema)

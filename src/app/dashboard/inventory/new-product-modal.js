@@ -102,7 +102,7 @@ export default function NewProductModal({ onClose, onUpdate }) {
                                 >
                                     <option value="all" className="bg-zinc-900 text-gray-500">Seçiniz...</option>
                                     {[...new Set(options.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))]
-                                        .filter(d => d !== 'Yiyecek' && d !== 'İçecek')
+                                        .filter(d => d !== 'Yiyecek' && d !== 'İçecek' && d !== 'Sarf Malzeme')
                                         .map(d => (
                                             <option key={d} value={d} className="bg-zinc-900">{d}</option>
                                         ))}

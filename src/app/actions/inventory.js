@@ -586,7 +586,7 @@ export const getFilterOptions = safeAction(async () => {
         { dept: 'Servis Departmanı', cats: ['Temizlik - Hijyen Malzemeleri', 'Servis Tabakları', 'Servis Çatal - Bıçak', 'Servis Gümüş Tabaklar', 'Demirbaşlar', 'Personel Kıyafet'] },
         { dept: 'Kasa Departmanı', cats: ['Kırtasiye Malzemeleri', 'Operasyon Malzemeleri'] },
         { dept: 'Mutfak – Tezgah Departmanı', cats: ['10’lu Kibrit Kutu Lokumlar', '20’li Kibrit Kutu Lokumlar', 'Teneke Lokumlar', 'Poşet Lokumlar ve Kurabiyeler – 250 Gramlıklar', 'Poşet Lokumlar ve Kurabiyeler – 100 Gramlıklar', 'Şekerlemeler', 'Kavanoz Gıdalar', 'Kutular'] },
-        { dept: 'Bar Departmanı', cats: ['Donuk Ürünler', 'Kahve – Çay – Bitki Çayı', 'Soft İçecekler', 'Süt Ürünleri', 'Perakende Ürünler', 'Tatlı İçecek Ürünler', 'Al Götür Ekipmanlar'] }
+        { dept: 'Bar Departmanı', cats: ['Donuk Ürünler', 'Kahve – Çay – Bitki Çayı', 'Soft İçecekler', 'Süt Ürünleri', 'Perakende Ürünler', 'Tatlı İçecek Ürünler', 'Al Götür Ekipmanlar', 'Demirbaşlar', 'Temizlik Malzemeleri', 'Fincanlar', 'Bar – Fincan Altlık'] }
     ]
     for (const d of deptCats) {
         for (const c of d.cats) {
@@ -891,6 +891,88 @@ export const getFilterOptions = safeAction(async () => {
             'Take Away Ice Bardak Kapağı Fişek x38’li',
             'Bambu Pipet Büyük Poşet x100',
             'Bambu Pipet Küçük Poşet x100'
+        ]}
+        ,
+        { dept: 'Bar Departmanı', cat: 'Demirbaşlar', items: [
+            'Soy Cezve Büyük',
+            'Soy Cezve Küçük',
+            'Maxi Boy Cezve',
+            'Quin Spin',
+            'Pitcher',
+            'Porselen Süt Potu',
+            'Karaca Türk Kahve Makinası',
+            'Zara Kavanoz',
+            'Anonim Marka Kavanoz',
+            'Jumbo Kavanoz',
+            'Çekirdek Kahve Öğütücü',
+            'Kahve Press Makinası',
+            'Filtre Kahve Makinası',
+            'Sabri Güzen Çay Kaşığı',
+            'Zara Karıştırma Kaşığı',
+            'Üçgen Gümüş Krema Kaşığı',
+            'Zara Bitki Çayı Potu',
+            'French Press',
+            'Bez Altı Tahtalar',
+            'Hassas Terazi',
+            'Remta Benmari Makinesi',
+            'Remta Benmari Fişek Sosluk',
+            'Kahramanlar Demlik',
+            'Bitki Çayı Tepsisi',
+            'Espresso Kaşığı'
+        ]},
+        { dept: 'Bar Departmanı', cat: 'Temizlik Malzemeleri', items: [
+            'Pully Caff 900 gr',
+            'Pully Grind 150 gr',
+            'Pully Milk 1000 ml',
+            'D9',
+            'Barista Bez Seti (Pembe x2 – Sarı x2 – Mavi x2 – Yeşil x2 – Mavi Cam Bezi x2)',
+            'Domestos Köpük 1 LT',
+            'Asperox 1 LT',
+            'Limonlu Cif 1 LT',
+            'Bej Bulaşık Süngeri Paket 8’li'
+        ]},
+        { dept: 'Bar Departmanı', cat: 'Fincanlar', items: [
+            'Imperial Mavi Fincan',
+            'Imperial Pembe Fincan',
+            'Imperial Double Türk Kahvesi Fincanı',
+            'Imperial Kupa',
+            'Imperial El Boyaması Fincan Altlığı',
+            'Imperial El Boyaması Fincan',
+            'Imperial El Boyaması Servis Tabağı',
+            'Weimar Porselen Beyaz Fincan',
+            'Weimar Türk Kahvesi Single Fincan',
+            'Jumbo Çay Bardağı',
+            'Jumbo Çift Cidarlı Küçük Bardak',
+            'Jumbo Çift Cidarlı Kulplu Büyük Bardak',
+            'Jumbo Çift Cidarlı Kulplu Bitki Çayı Bardağı',
+            'Kristal Şerbet Bardağı',
+            'RCR Kahve Yanı Su Bardağı',
+            'Un Helvası Cam Joker',
+            'Jumbo Çift Cidarlı Kahve Yanı Su Bardağı',
+            'Classic Rose Lacivert Single Espresso Fincanı',
+            'Classic Rose Lacivert Büyük Fincan',
+            'Özel Gümüş Beyaz Espresso Fincanı',
+            'RCR Kristal Su Bardağı',
+            'RCR Kristal Long Bardak',
+            'Vintage Kahve Fincan Takımı 6’lı Set (Çiçekli El Boyaması 6 Fincan + 6 Fincan Altı)',
+            'Vintage Kahve Fincanı Takımı 14’lü Set (14 Kahve Fincanı + 15 Fincan Altlığı)',
+            'El Boyaması Su Yeşili Takım (3 Porselen + 1 Fincan + 1 Fincan Altı)',
+            'Classic Rose Vintage Takım (3 Porselen + 6 Fincan Altlığı + 2 Fincan)'
+        ]},
+        { dept: 'Bar Departmanı', cat: 'Bar – Fincan Altlık', items: [
+            'Mavi Imperial Fincan Altlığı',
+            'Pembe Imperial Fincan Altlığı',
+            'Imperial Double Pembe Türk Kahvesi Fincan Altlığı',
+            'Imperial Kupa Altlığı',
+            'Weimar Beyaz Latte Fincan Altlığı',
+            'Weimar Beyaz Kahve Fincan Altlığı',
+            'Gümüş Çay Bardağı Altlığı',
+            'Gümüş Küçük Beyaz Espresso Fincan Altlığı',
+            'Classic Rose Lacivert Single Espresso Fincan Altlığı',
+            'Classic Rose Lacivert Büyük Fincan Altlığı',
+            'Take Away Karton Yumurta Altlığı 100’lü',
+            'Take Away Bardak Tıkacı 100’lü',
+            'Otto Karton Bardak Altlığı'
         ]}
     ]
     function unitFor(name) {

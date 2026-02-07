@@ -101,9 +101,11 @@ export default function NewProductModal({ onClose, onUpdate }) {
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/50 focus:outline-none transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="all" className="bg-zinc-900 text-gray-500">Seçiniz...</option>
-                                    {[...new Set(options.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))].map(d => (
-                                        <option key={d} value={d} className="bg-zinc-900">{d}</option>
-                                    ))}
+                                    {[...new Set(options.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))]
+                                        .filter(d => d !== 'Yiyecek' && d !== 'İçecek')
+                                        .map(d => (
+                                            <option key={d} value={d} className="bg-zinc-900">{d}</option>
+                                        ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">▼</div>
                             </div>

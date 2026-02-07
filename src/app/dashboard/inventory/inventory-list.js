@@ -671,7 +671,13 @@ export default function InventoryList({ initialProducts, userRole }) {
                                         className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500/50 transition-all min-w-[150px]"
                                     >
                                         <option value="all">Tüm Departmanlar</option>
-                                        {[...new Set(filterOptions.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))].map(d => (
+                                        {[...new Set(
+                                            filterOptions.categories
+                                                .map(c => (c.name || '').split(' / ')[0])
+                                                .filter(Boolean)
+                                        )]
+                                            .filter(d => d !== 'Yiyecek' && d !== 'İçecek')
+                                            .map(d => (
                                             <option key={d} value={d}>{d}</option>
                                         ))}
                                     </select>

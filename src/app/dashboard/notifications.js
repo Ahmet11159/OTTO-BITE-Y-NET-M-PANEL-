@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getNotifications, markNotificationsRead } from '@/app/actions/notifications'
-import { getSettings } from '@/app/actions/settings'
 
-export default function NotificationBell() {
+export default function NotificationBell({ initialLocale = 'tr-TR', pollIntervalMs = 10000 }) {
     const [notifications, setNotifications] = useState([])
     const [showMenu, setShowMenu] = useState(false)
     const [sseReady, setSseReady] = useState(false)
-    const [locale, setLocale] = useState('tr-TR')
+    const [locale, setLocale] = useState(initialLocale || 'tr-TR')
 
     const fetchNotifications = async () => {
         try {
@@ -20,15 +19,8 @@ export default function NotificationBell() {
     }
 
     useEffect(() => {
-        let pollIntervalMs = 10000
         let intervalId = null
-        getSettings().then(res => {
-            if (res.success && res.data?.notifications?.pollIntervalMs) {
-                pollIntervalMs = Number(res.data.notifications.pollIntervalMs) || pollIntervalMs
-            }
-            const loc = res.success && res.data?.general?.locale ? String(res.data.general.locale) : null
-            if (loc) setLocale(loc)
-        }).catch(() => {})
+        setLocale(initialLocale || 'tr-TR')
         const es = typeof window !== 'undefined' ? new EventSource('/api/notifications/stream') : null
         if (es) {
             es.onmessage = (ev) => {
@@ -64,7 +56,7 @@ export default function NotificationBell() {
             document.removeEventListener('keydown', onKey)
             document.removeEventListener('mousedown', onClickOut)
         }
-    }, [])
+        }, [initialLocale, pollIntervalMs])
 
     const handleMarkRead = async () => {
         const res = await markNotificationsRead()

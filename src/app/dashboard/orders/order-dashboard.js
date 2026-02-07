@@ -2,13 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createOrder, toggleItemReceived, toggleInventorySync, deleteOrder } from '@/app/actions/orders'
-import { getSettings } from '@/app/actions/settings'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/app/providers/toast-provider'
 import ConfirmModal from '@/app/components/confirm-modal'
 import { getOrderLimits } from '@/lib/app-config'
 
-export default function OrderDashboard({ initialOrders, initialUnfilled, user, inventoryProducts = [] }) {
+export default function OrderDashboard({ initialOrders, initialUnfilled, user, inventoryProducts = [], initialLocale = 'tr-TR' }) {
     const [activeTab, setActiveTab] = useState('active')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -30,7 +29,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     // New Order Form State
     const [orderTitle, setOrderTitle] = useState('')
     const [orderItems, setOrderItems] = useState([])
-    const [locale, setLocale] = useState('tr-TR')
+    const [locale, setLocale] = useState(initialLocale || 'tr-TR')
 
     // Product Selector State
     const [productSearch, setProductSearch] = useState('')
@@ -89,17 +88,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     }
 
     useEffect(() => {
-        getSettings().then((res) => {
-            if (!res?.success) return
-            const o = res.data?.orders
-            if (!o) return
-            setLimits((prev) => ({
-                min: typeof o.minQty === 'number' ? o.minQty : prev.min,
-                max: typeof o.maxQty === 'number' ? o.maxQty : prev.max,
-            }))
-            const g = res.data?.general
-            if (g?.locale) setLocale(String(g.locale))
-        })
+        setLimits(getOrderLimits())
     }, [])
 
     useEffect(() => {

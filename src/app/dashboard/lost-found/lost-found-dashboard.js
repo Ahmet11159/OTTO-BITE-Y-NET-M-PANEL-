@@ -9,9 +9,8 @@ import LostItemDetailModal from './lost-item-detail-modal'
 import LostItemEditModal from './lost-item-edit-modal'
 import { useToast } from '@/app/providers/toast-provider'
 import ConfirmModal from '@/app/components/confirm-modal'
-import { getSettings } from '@/app/actions/settings'
 
-export default function LostFoundDashboard({ initialItems, stats, user }) {
+export default function LostFoundDashboard({ initialItems, stats, user, initialLocale = 'tr-TR' }) {
     const router = useRouter()
     const [items, setItems] = useState(initialItems)
     const [searchQuery, setSearchQuery] = useState('')
@@ -25,19 +24,15 @@ export default function LostFoundDashboard({ initialItems, stats, user }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const { addToast } = useToast()
     const [confirmState, setConfirmState] = useState({ open: false, message: '', onConfirm: null })
-    const [locale, setLocale] = useState('tr-TR')
+    const [locale, setLocale] = useState(initialLocale || 'tr-TR')
 
     const isAdmin = user?.role === 'ADMIN'
 
     const showToast = (message, type = 'success') => addToast(message, type)
 
     useEffect(() => {
-        getSettings().then(res => {
-            if (res.success && res.data?.general?.locale) {
-                setLocale(String(res.data.general.locale))
-            }
-        }).catch(() => {})
-    }, [])
+        setLocale(initialLocale || 'tr-TR')
+    }, [initialLocale])
 
     // Filtreleme
     const filteredItems = items.filter(item => {

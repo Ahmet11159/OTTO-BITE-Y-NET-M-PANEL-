@@ -140,6 +140,9 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
         setIsLoading(true)
         setError('')
         try {
+            if (typeof purgeDepartment !== 'function') {
+                throw new Error('Departman temizleme fonksiyonu yüklenemedi. Lütfen sayfayı yenileyip tekrar deneyin.')
+            }
             const res = await purgeDepartment({ dept: name })
             if (res.success) {
                 await fetchOptions()

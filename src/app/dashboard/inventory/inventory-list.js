@@ -17,6 +17,7 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [isLogModalOpen, setIsLogModalOpen] = useState(false)
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [departmentFilter, setDepartmentFilter] = useState('all')
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [unitFilter, setUnitFilter] = useState('all')
     const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
@@ -320,9 +321,10 @@ export default function InventoryList({ initialProducts, userRole }) {
 
     const filteredProducts = products.filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesDepartment = departmentFilter === 'all' || (product.category && product.category.startsWith(`${departmentFilter} /`))
         const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter
         const matchesUnit = unitFilter === 'all' || product.unit === unitFilter
-        return matchesSearch && matchesCategory && matchesUnit
+        return matchesSearch && matchesDepartment && matchesCategory && matchesUnit
     })
 
     // Calculate stats
@@ -661,14 +663,29 @@ export default function InventoryList({ initialProducts, userRole }) {
                                 <div className="flex items-center gap-2 bg-black/30 p-2 rounded-2xl border border-white/10">
                                     <span className="text-xs font-bold text-purple-400 uppercase tracking-wider px-2">Filtre</span>
                                     <select
+                                        value={departmentFilter}
+                                        onChange={(e) => {
+                                            setDepartmentFilter(e.target.value)
+                                            setCategoryFilter('all')
+                                        }}
+                                        className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500/50 transition-all min-w-[150px]"
+                                    >
+                                        <option value="all">Tüm Departmanlar</option>
+                                        {[...new Set(filterOptions.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))].map(d => (
+                                            <option key={d} value={d}>{d}</option>
+                                        ))}
+                                    </select>
+                                    <select
                                         value={categoryFilter}
                                         onChange={(e) => setCategoryFilter(e.target.value)}
-                                        className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500/50 transition-all min-w-[120px]"
+                                        className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500/50 transition-all min-w-[180px]"
                                     >
                                         <option value="all">Tüm Kategoriler</option>
-                                        {filterOptions.categories.map(c => (
-                                            <option key={c.id} value={c.name}>{c.name}</option>
-                                        ))}
+                                        {filterOptions.categories
+                                            .filter(c => departmentFilter === 'all' ? true : (c.name || '').startsWith(`${departmentFilter} /`))
+                                            .map(c => (
+                                                <option key={c.id} value={c.name}>{c.name}</option>
+                                            ))}
                                     </select>
                                     <select
                                         value={unitFilter}

@@ -9,6 +9,7 @@ export default function NewProductModal({ onClose, onUpdate }) {
     const [options, setOptions] = useState({ categories: [], units: [] })
     const [unitStep, setUnitStep] = useState(1)
     const [selectedUnit, setSelectedUnit] = useState('ADET')
+    const [selectedDept, setSelectedDept] = useState('all')
     const { addToast } = useToast()
 
     useEffect(() => {
@@ -90,7 +91,23 @@ export default function NewProductModal({ onClose, onUpdate }) {
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1.5 tracking-widest pl-1">Departman</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedDept}
+                                    onChange={(e) => { setSelectedDept(e.target.value); }}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/50 focus:outline-none transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="all" className="bg-zinc-900 text-gray-500">Seçiniz...</option>
+                                    {[...new Set(options.categories.map(c => (c.name || '').split(' / ')[0]).filter(Boolean))].map(d => (
+                                        <option key={d} value={d} className="bg-zinc-900">{d}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">▼</div>
+                            </div>
+                        </div>
                         <div>
                             <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1.5 tracking-widest pl-1">Kategori</label>
                             <div className="relative">
@@ -100,9 +117,11 @@ export default function NewProductModal({ onClose, onUpdate }) {
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/50 focus:outline-none transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="" className="bg-zinc-900 text-gray-500">Seçiniz...</option>
-                                    {options.categories.map(c => (
-                                        <option key={c.id} value={c.name} className="bg-zinc-900">{c.name}</option>
-                                    ))}
+                                    {options.categories
+                                        .filter(c => selectedDept === 'all' ? true : (c.name || '').startsWith(`${selectedDept} /`))
+                                        .map(c => (
+                                            <option key={c.id} value={c.name} className="bg-zinc-900">{c.name}</option>
+                                        ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">▼</div>
                             </div>

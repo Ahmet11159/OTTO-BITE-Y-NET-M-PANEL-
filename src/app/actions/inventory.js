@@ -575,8 +575,176 @@ export const getInventoryLogs = safeAction(async () => {
 })
 
 export const getFilterOptions = safeAction(async () => {
+    const categoriesCount = await prisma.category.count()
+    const unitsCount = await prisma.unit.count()
+    if (categoriesCount === 0 || unitsCount === 0) {
+        const deptCats = [
+            { dept: 'Servis Departmanı', cats: ['Temizlik - Hijyen Malzemeleri', 'Servis Tabakları', 'Servis Çatal - Bıçak', 'Servis Gümüş Tabaklar', 'Demirbaşlar', 'Personel Kıyafet'] },
+            { dept: 'Kasa Departmanı', cats: ['Kırtasiye Malzemeleri', 'Operasyon Malzemeleri'] }
+        ]
+        for (const d of deptCats) {
+            for (const c of d.cats) {
+                const name = `${d.dept} / ${c}`
+                const exists = await prisma.category.findFirst({ where: { name } })
+                if (!exists) {
+                    await prisma.category.create({ data: { name } })
+                }
+            }
+        }
+        const defaultUnits = ['ADET', 'lt', 'paket', 'koli', 'top', 'set']
+        for (const u of defaultUnits) {
+            const exists = await prisma.unit.findFirst({ where: { name: u } })
+            if (!exists) {
+                await prisma.unit.create({ data: { name: u } })
+            }
+        }
+    }
     const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } })
     const units = await prisma.unit.findMany({ orderBy: { name: 'asc' } })
+    const productsCount = await prisma.product.count()
+    if (productsCount === 0) {
+        const seed = [
+            { dept: 'Servis Departmanı', cat: 'Temizlik - Hijyen Malzemeleri', items: [
+                'Diversey Bulaşık Deterjanı Makina 20LT',
+                'Diversey El Bulaşık Sabunu 20LT',
+                'Diversey Kireç Çözücü 20LT',
+                'Diversey Parlatıcı 20LT',
+                'Domestos Çamaşır Suyu 3,2LT',
+                'Sıvı Arap Sabunu 5LT',
+                'Cam Sil 1LT',
+                'Battal Boy Çöp Torbası',
+                'Mavi Eldiven Paket 100’lü',
+                'Beyaz Eldiven Paket 100’lü',
+                'Logolu Servis Peçetesi Koli 1920 Adet',
+                'Logolu Servis Peçetesi Koli 2400 Adet',
+                'Servis Islak Mendil Koli 500 Adet',
+                'Ekmekli Rulo Kağıt',
+                'Bingo Islak Mendil',
+                'Cam Bez',
+                'Mikrofiber Bez',
+                'Güderi Bez',
+                'Bulaşık Süngeri',
+                'Bulaşık Teli',
+                'Vileda Kova Kapağı',
+                'Vileda Mop',
+                'Vileda Paspas Ucu Saçaklı',
+                'Uzatmalı Temizlik Başlığı',
+                'Vileda Kovası',
+                'Shark Makine İlacı',
+                'Gümüş Parlatma İlacı',
+                'Gümüş Parlatma Bezi',
+                'Beyaz Sirke',
+                'Dose Leke Çıkarıcı'
+            ]},
+            { dept: 'Servis Departmanı', cat: 'Servis Tabakları', items: [
+                'Imperial Orta Pembe Servis Tabak',
+                'Imperial Küçük Mavi Servis Tabak',
+                'Classic Rose Lacivert-Gold Küçük Servis Tabak',
+                'Classic Rose Lacivert-Gold Orta Servis Tabak',
+                'Classic Rose Lacivert-Gold Büyük Servis Tabak',
+                'Classic Rose Lacivert-Gold Kayık Servis Tabak',
+                'Weinnar Porselen Sos Tabağı',
+                'Weinnar Porselen Sosluk',
+                'Weinnar Porselen Büyük Şekerlik',
+                'Weinnar Porselen Şekerlik',
+                'Weinnar Porselen Salata Kasesi',
+                'Weinnar Porselen Çorba Kasesi',
+                'Weinnar Porselen Tuzluk',
+                'Weinnar Porselen Büyük Çukur Tabak',
+                'Weinnar Porselen Büyük Kayık Tabak',
+                'Weinnar Porselen Küçük Kayık Tabak',
+                'Weinnar Porselen Kruvasan Tabağı Orta',
+                'Weinnar Porselen Ciğer Tabağı Büyük',
+                'Furstenberg Porselen Lacivert-Gold Tabak',
+                'Furstenberg Porselen Beyaz-Gold Tabak'
+            ]},
+            { dept: 'Servis Departmanı', cat: 'Servis Çatal - Bıçak', items: [
+                'Gümüş Tatlı Çatalı',
+                'Gümüş Tatlı Bıçağı',
+                'Gümüş Tatlı Kaşığı',
+                'Gümüş Yemek Çatalı',
+                'Gümüş Yemek Bıçağı',
+                'Gümüş Yemek Kaşığı',
+                'Jumbo Yemek Bıçağı'
+            ]},
+            { dept: 'Servis Departmanı', cat: 'Servis Gümüş Tabaklar', items: [
+                'Gümüş Oval Tabak',
+                'Gümüş Dikdörtgen Tabak',
+                'Gümüş Yuvarlak Küçük Tabak',
+                'Gümüş Yuvarlak Orta Tabak'
+            ]},
+            { dept: 'Servis Departmanı', cat: 'Demirbaşlar', items: [
+                'Gümüş Masa Vazoları',
+                'Gümüş Masa Servis Seti (14 Parça Masa)',
+                'Mama Sandalyesi',
+                'Küllabası',
+                'Servis Tepsisi Büyük',
+                'Servis Tepsisi Orta'
+            ]},
+            { dept: 'Servis Departmanı', cat: 'Personel Kıyafet', items: [
+                'Şef Pantolonu 36 Beden',
+                'Şef Pantolonu 46 Beden',
+                'Pantolon S Beden',
+                'Pantolon M Beden',
+                'Gömlek M Beden',
+                'Gömlek L Beden',
+                'Gömlek XL Beden',
+                'Polar XS Beden',
+                'Pantolon L Beden (Defolu)',
+                'Pantolon XXL Beden (Defolu)'
+            ]},
+            { dept: 'Kasa Departmanı', cat: 'Kırtasiye Malzemeleri', items: [
+                'A4 Kağıt (Top / 500’lü)',
+                'Zımba Teli (Paket)',
+                'Etiket Tarih Makinası',
+                'Makas',
+                'Sümen',
+                'Koli Bandı',
+                'Falcata',
+                'Zımba Makine',
+                'Raptiye',
+                'Paket Lastiği Paket 700’lü'
+            ]},
+            { dept: 'Kasa Departmanı', cat: 'Operasyon Malzemeleri', items: [
+                'Büyük Yazıcı Fişi 10’lu',
+                'Küçük Yazıcı Fişi 10’lu',
+                'Kürdan Kutu Paket 1000’li',
+                'Pasta Mum Paket 6’lı',
+                'Kibrit Koli X300',
+                'Şarj Aleti',
+                'QR Menü',
+                'Değerlendirme QR'
+            ]}
+        ]
+        function unitFor(name) {
+            const n = name.toLowerCase()
+            if (n.includes('lt')) return 'lt'
+            if (n.includes('koli')) return 'koli'
+            if (n.includes('paket')) return 'paket'
+            if (n.includes('top')) return 'top'
+            if (n.includes('set')) return 'set'
+            return 'ADET'
+        }
+        for (const group of seed) {
+            const categoryName = `${group.dept} / ${group.cat}`
+            for (const item of group.items) {
+                const exists = await prisma.product.findFirst({ where: { name: item } })
+                if (!exists) {
+                    await prisma.product.create({
+                        data: {
+                            name: item,
+                            unit: unitFor(item),
+                            category: categoryName,
+                            startStock: 0,
+                            currentStock: 0,
+                            lastReset: new Date()
+                        }
+                    })
+                }
+            }
+        }
+        revalidatePath('/dashboard/inventory')
+    }
     return { categories, units }
 })
 

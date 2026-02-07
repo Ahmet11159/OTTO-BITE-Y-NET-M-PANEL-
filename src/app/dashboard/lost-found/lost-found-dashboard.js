@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { returnItem, disposeItem, deleteLostItem } from '@/app/actions/lost-found'
 import { ITEM_CATEGORIES, STATUS_CONFIG, getCategoryIcon } from './constants'

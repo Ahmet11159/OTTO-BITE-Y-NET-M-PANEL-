@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { safeAction } from '@/lib/safe-action'
 import { z } from 'zod'
 import { notify } from '@/lib/notify'
+import { getSettings } from '@/app/actions/settings'
 
 // --- Schemas ---
 
@@ -36,6 +37,22 @@ const DeleteReportSchema = z.object({
     reportId: z.coerce.number()
 })
 
+const ReportFilterSchema = z.object({
+    shiftType: z.enum(['Sabah', 'Akşam', 'all']).optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional()
+})
+
+const AllReportFilterSchema = ReportFilterSchema.extend({
+    department: z.string().optional()
+})
+
+const IdSchema = z.object({
+    id: z.coerce.number()
+})
+
+const managerRoles = ['Müdür', 'Müdür Yardımcısı', 'Müşteri İlişkileri Yöneticisi']
+
 // --- Actions ---
 
 export const createReport = safeAction(async (data) => {
@@ -46,6 +63,17 @@ export const createReport = safeAction(async (data) => {
 
     const { shiftType, personnelStatus, operationalNotes, technicalIssues, closingChecklist } = data
     const department = session.department || 'Belirtilmemiş'
+
+    const settingsRes = await getSettings()
+    const minLen = settingsRes.success && settingsRes.data?.reports?.minTextLength ? Number(settingsRes.data.reports.minTextLength) : 5
+    const isManagerRole = managerRoles.includes(session.department) || session.role === 'ADMIN'
+    if (!isManagerRole) {
+        const psLen = (personnelStatus || '').trim().length
+        const onLen = (operationalNotes || '').trim().length
+        if (psLen < minLen || onLen < minLen) {
+            throw new Error(`Metin alanları en az ${minLen} karakter olmalıdır`)
+        }
+    }
 
     await prisma.report.create({
         data: {
@@ -98,7 +126,7 @@ export const getMyReports = safeAction(async (filters = {}) => {
             author: true
         }
     })
-})
+}, ReportFilterSchema.optional())
 
 export const getAllReports = safeAction(async (filters = {}) => {
     const session = await getSession()
@@ -135,11 +163,11 @@ export const getAllReports = safeAction(async (filters = {}) => {
             }
         },
         orderBy: [
-            { isReviewed: 'asc' }, // Unreviewed first
+            { isReviewed: 'asc' },
             { createdAt: 'desc' }
         ]
     })
-})
+}, AllReportFilterSchema.optional())
 
 export const addManagerNote = safeAction(async (data) => {
     const session = await getSession()
@@ -231,6 +259,17 @@ export const updateReport = safeAction(async (data) => {
         throw new Error('Unauthorized')
     }
 
+    const settingsRes = await getSettings()
+    const minLen = settingsRes.success && settingsRes.data?.reports?.minTextLength ? Number(settingsRes.data.reports.minTextLength) : 5
+    const isManagerRole = managerRoles.includes(session.department) || session.role === 'ADMIN'
+    if (!isManagerRole) {
+        const psLen = (personnelStatus || '').trim().length
+        const onLen = (operationalNotes || '').trim().length
+        if (psLen < minLen || onLen < minLen) {
+            throw new Error(`Metin alanları en az ${minLen} karakter olmalıdır`)
+        }
+    }
+
     await prisma.report.update({
         where: { id },
         data: {
@@ -245,3 +284,24 @@ export const updateReport = safeAction(async (data) => {
 
     redirect('/dashboard/reports/chef')
 }, UpdateReportSchema)
+
+export const getReportById = safeAction(async (data) => {
+    const session = await getSession()
+    if (!session) throw new Error('Unauthorized')
+    const { id } = data
+    const report = await prisma.report.findUnique({
+        where: { id },
+        select: {
+            id: true,
+            authorId: true,
+            shiftType: true,
+            personnelStatus: true,
+            operationalNotes: true,
+            technicalIssues: true,
+            closingChecklist: true,
+            createdAt: true
+        }
+    })
+    if (!report) throw new Error('Rapor bulunamadı')
+    return report
+}, IdSchema)

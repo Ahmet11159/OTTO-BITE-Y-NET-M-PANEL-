@@ -1,10 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const secretKey = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? null : 'ottobite-dev-secret')
-if (!secretKey) {
-    throw new Error('JWT_SECRET is required')
-}
+const secretKey = process.env.JWT_SECRET || 'ottobite-dev-secret'
 const key = new TextEncoder().encode(secretKey)
 
 export async function encrypt(payload) {

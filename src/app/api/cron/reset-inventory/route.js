@@ -13,6 +13,15 @@ export async function GET(request) {
         }
     }
 
+    const dbUrl = process.env.DATABASE_URL || ''
+    const badProtocol = dbUrl && !/^postgresql:\/\//.test(dbUrl) && !/^postgres:\/\//.test(dbUrl)
+    if (!dbUrl || badProtocol) {
+        return NextResponse.json({
+            success: false,
+            error: 'DATABASE_URL is missing or invalid; skipping monthly reset.'
+        }, { status: 200 })
+    }
+
     try {
         const now = new Date()
         const settingsRes = await getSettings()

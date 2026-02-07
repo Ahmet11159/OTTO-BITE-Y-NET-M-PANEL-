@@ -3,6 +3,8 @@ import { getAllProducts } from '@/app/actions/inventory'
 import { getSession } from '@/lib/auth'
 import OrderDashboard from './order-dashboard'
 
+export const dynamic = 'force-dynamic'
+
 export default async function OrdersPage() {
     const ordersRes = await getOrders()
     const unfilledRes = await getUnfilledOrders()
@@ -31,4 +33,3 @@ export default async function OrdersPage() {
         </div>
     )
 }
-

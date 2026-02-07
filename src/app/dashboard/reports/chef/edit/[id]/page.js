@@ -1,17 +1,18 @@
 
 import { getSession } from '@/lib/auth'
-import prisma from '@/lib/prisma'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import ReportForm from '../../report-form'
+import { getReportById } from '@/app/actions/report'
+
+export const dynamic = 'force-dynamic'
 
 export default async function EditReportPage({ params }) {
     const session = await getSession()
     if (!session) redirect('/login')
 
-    const report = await prisma.report.findUnique({
-        where: { id: parseInt(params.id) }
-    })
+    const res = await getReportById({ id: params.id })
+    const report = res && res.success ? res.data : null
 
     if (!report) {
         return <div className="text-white">Rapor bulunamadı.</div>

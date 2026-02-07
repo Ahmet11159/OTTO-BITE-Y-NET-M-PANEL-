@@ -65,11 +65,7 @@ export const login = safeAction(async (data) => {
     })
 
     // Redirect based on role
-    if (user.role === 'ADMIN') {
-        redirect('/dashboard/reports/manager')
-    } else {
-        redirect('/dashboard/reports/chef')
-    }
+    redirect('/dashboard')
 }, LoginSchema)
 
 export const logout = safeAction(async () => {

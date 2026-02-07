@@ -30,6 +30,7 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     // New Order Form State
     const [orderTitle, setOrderTitle] = useState('')
     const [orderItems, setOrderItems] = useState([])
+    const [locale, setLocale] = useState('tr-TR')
 
     // Product Selector State
     const [productSearch, setProductSearch] = useState('')
@@ -82,7 +83,6 @@ export default function OrderDashboard({ initialOrders, initialUnfilled, user, i
     const [limits, setLimits] = useState(getOrderLimits())
     const MIN_QTY = limits.min
     const MAX_QTY = limits.max
-    const [locale, setLocale] = useState('tr-TR')
     const fmt = (v) => {
         const n = Number(v)
         return Number.isFinite(n) ? n.toLocaleString(locale) : String(v)

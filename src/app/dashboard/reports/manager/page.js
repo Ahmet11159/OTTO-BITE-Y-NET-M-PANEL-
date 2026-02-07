@@ -6,6 +6,8 @@ import DashboardStats from './stats'
 import FilterBar from './filter-bar'
 import CategorizedView from './categorized-view'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ManagerDashboard({ searchParams }) {
     const session = await getSession()
     if (!session) redirect('/login')

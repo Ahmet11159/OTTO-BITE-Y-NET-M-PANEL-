@@ -5,6 +5,8 @@ import { getUnfilledOrders } from '@/app/actions/orders'
 import { getAlerts } from '@/app/actions/bakim'
 import { getAllReports, getMyReports } from '@/app/actions/report'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardHub() {
     const session = await getSession()
 

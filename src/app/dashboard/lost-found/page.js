@@ -1,7 +1,9 @@
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import prisma from '@/lib/prisma'
 import LostFoundDashboard from './lost-found-dashboard'
+import { getLostItems, getLostItemStats } from '@/app/actions/lost-found'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
     title: 'Kayıp Eşya Yönetimi | OTTOBITE ShiftLog',
@@ -12,22 +14,16 @@ export default async function LostFoundPage() {
     const session = await getSession()
     if (!session) redirect('/login')
 
-    // Tüm kayıp eşyaları getir
-    const items = await prisma.lostItem.findMany({
-        include: {
-            reportedBy: {
-                select: { id: true, fullName: true }
-            }
-        },
-        orderBy: { createdAt: 'desc' }
-    })
-
-    // İstatistikler
-    const stats = {
+    const itemsRes = await getLostItems()
+    const statsRes = await getLostItemStats()
+    const items = itemsRes.success ? itemsRes.data : []
+    const stats = statsRes.success ? statsRes.data : {
         total: items.length,
         found: items.filter(i => i.status === 'FOUND').length,
         returned: items.filter(i => i.status === 'RETURNED').length,
-        disposed: items.filter(i => i.status === 'DISPOSED').length
+        disposed: items.filter(i => i.status === 'DISPOSED').length,
+        recentItems: 0,
+        byCategory: []
     }
 
     return (

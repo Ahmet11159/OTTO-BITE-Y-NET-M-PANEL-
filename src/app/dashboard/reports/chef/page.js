@@ -7,6 +7,8 @@ import ChefStats from './stats'
 import ChefFilterBar from './filter-bar'
 import { getSettings } from '@/app/actions/settings'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ChefDashboard({ searchParams }) {
     const session = await getSession()
     if (!session) redirect('/login')

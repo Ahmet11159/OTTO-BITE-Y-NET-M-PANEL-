@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate && prisma db push"
+    "postinstall": "prisma generate && sh -c 'if [ -n \"$DATABASE_URL\" ]; then prisma db push; else echo \"Skipping prisma db push (missing DATABASE_URL)\"; fi'"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

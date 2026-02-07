@@ -7,6 +7,11 @@ function serverLog(msg) {
     try { fs.appendFileSync(serverLogFile, logMsg) } catch (e) { }
 }
 
+const dbUrl = process.env.DATABASE_URL || ''
+const badProtocol = dbUrl && !/^postgresql:\/\//.test(dbUrl) && !/^postgres:\/\//.test(dbUrl)
+if (!dbUrl) serverLog('DATABASE_URL missing; Prisma will attempt lazy connections')
+else if (badProtocol) serverLog(`DATABASE_URL protocol invalid: ${dbUrl.split('://')[0]}`)
+
 const prismaClientSingleton = () => {
     return new PrismaClient()
 }

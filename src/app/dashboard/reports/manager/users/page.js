@@ -3,6 +3,8 @@ import Link from 'next/link'
 import UserList from './user-list'
 import UserForm from './user-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UsersPage() {
     const res = await getUsers()
     const users = res.success ? res.data : []

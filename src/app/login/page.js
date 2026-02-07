@@ -38,11 +38,8 @@ export default function LoginPage() {
                 }
             }
         } catch (err) {
-            if (err && (err.message === 'NEXT_REDIRECT' || (err.digest && String(err.digest).startsWith('NEXT_REDIRECT')))) {
-                return
-            }
-            setError('Bir hata oluştu.')
             setLoading(false)
+            return
         }
     }
 

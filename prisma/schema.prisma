@@ -258,6 +258,39 @@ model MaintenanceRecord {
   createdAt    DateTime  @default(now())
 }
 
+model GalleryDepartment {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  position    Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  categories  GalleryCategory[]
+}
+
+model GalleryCategory {
+  id            Int               @id @default(autoincrement())
+  name          String
+  description   String?
+  position      Int               @default(0)
+  departmentId  Int
+  department    GalleryDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  items         GalleryItem[]
+}
+
+model GalleryItem {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String?
+  sizeLabel   String?
+  photoUrl    String?
+  position    Int             @default(0)
+  categoryId  Int
+  category    GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
 model MaintenanceAlert {
   id          Int      @id @default(autoincrement())
   content     String

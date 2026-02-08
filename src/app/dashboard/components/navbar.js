@@ -16,6 +16,7 @@ export default function Navbar({ user, notificationElement }) {
     { href: '/dashboard/orders', label: 'Siparişler' },
     { href: '/dashboard/bakim', label: 'Bakım' },
     { href: '/dashboard/lost-found', label: 'Kayıp Eşya' },
+    { href: '/dashboard/gallery', label: 'Fotoğraf Galerisi' },
     { href: '/dashboard/finance/cash-expenses', label: 'Finans' },
   ]
 

@@ -12,8 +12,10 @@ import {
   deleteCategory,
   createItem,
   updateItem,
-  deleteItem
+  deleteItem,
+  reorderItemsInCategory
 } from '@/app/actions/gallery'
+import ConfirmModal from '@/app/components/confirm-modal'
 
 export default function PhotoGalleryDashboard({ initialDepartments, user }) {
   const router = useRouter()
@@ -31,11 +33,29 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
   const [newItemSize, setNewItemSize] = useState('')
   const [newItemPhoto, setNewItemPhoto] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [detailItem, setDetailItem] = useState(null)
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', onConfirm: null })
   const { addToast } = useToast()
 
   const isAdmin = user?.role === 'ADMIN'
 
   const showToast = (message, type = 'success') => addToast(message, type)
+
+  const openConfirm = (message, onConfirm) => {
+    setConfirmState({
+      open: true,
+      message,
+      onConfirm: async () => {
+        await onConfirm()
+        setConfirmState({ open: false, message: '', onConfirm: null })
+      }
+    })
+  }
+
+  const closeConfirm = () => {
+    setConfirmState({ open: false, message: '', onConfirm: null })
+  }
 
   const refreshFromServer = async () => {
     router.refresh()
@@ -116,11 +136,75 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
   const activeCategory =
     activeCategories.find((c) => c.id === selectedCategoryId) || activeCategories[0] || null
 
+  const handleDeleteItem = (item) => {
+    if (!isAdmin) return
+    openConfirm(
+      `"${item.name}" ürününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      async () => {
+        setIsSubmitting(true)
+        try {
+          const res = await deleteItem({ id: item.id })
+          if (!res.success) throw new Error(res.error)
+          showToast('Ürün silindi')
+          router.refresh()
+        } catch (err) {
+          showToast(err.message || 'Ürün silinemedi', 'error')
+        } finally {
+          setIsSubmitting(false)
+        }
+      }
+    )
+  }
+
+  const handleMoveItem = async (itemId, direction) => {
+    if (!isAdmin) return
+    if (!activeCategory || !activeCategory.items || activeCategory.items.length < 2) return
+
+    const sorted = [...activeCategory.items].sort((a, b) => a.position - b.position)
+    const index = sorted.findIndex((i) => i.id === itemId)
+    if (index === -1) return
+
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= sorted.length) return
+
+    const temp = sorted[index]
+    sorted[index] = sorted[targetIndex]
+    sorted[targetIndex] = temp
+
+    const orderedIds = sorted.map((i) => i.id)
+
+    setIsSubmitting(true)
+    try {
+      const res = await reorderItemsInCategory({
+        categoryId: activeCategory.id,
+        itemIds: orderedIds
+      })
+      if (!res.success) throw new Error(res.error)
+      showToast('Sıralama güncellendi')
+      router.refresh()
+    } catch (err) {
+      showToast(err.message || 'Sıralama güncellenemedi', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+  const filteredItems =
+    activeCategory && activeCategory.items
+      ? activeCategory.items.filter((item) => {
+          if (!search.trim()) return true
+          const q = search.toLowerCase()
+          return (
+            item.name.toLowerCase().includes(q) ||
+            (item.description || '').toLowerCase().includes(q)
+          )
+        })
+      : []
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-1 space-y-4">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-white mb-3">Servis Departmanları</h2>
+          <h2 className="text-sm font-semibold text-white mb-3">Departmanlar</h2>
           <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
             {departments.length === 0 && (
               <div className="text-xs text-gray-400">Henüz departman yok.</div>
@@ -144,32 +228,7 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
           </div>
         </div>
 
-        {isAdmin && (
-          <form onSubmit={handleAddDepartment} className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-white">Yeni Departman</h3>
-            <input
-              value={newDepartmentName}
-              onChange={(e) => setNewDepartmentName(e.target.value)}
-              placeholder="Servis Departmanı"
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
-              disabled={isSubmitting}
-            />
-            <input
-              value={newDepartmentDesc}
-              onChange={(e) => setNewDepartmentDesc(e.target.value)}
-              placeholder="Açıklama (opsiyonel)"
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-amber-500 outline-none"
-              disabled={isSubmitting}
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting || !newDepartmentName.trim()}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold py-2 rounded-xl transition-all disabled:opacity-50"
-            >
-              Departman Ekle
-            </button>
-          </form>
-        )}
+        {/* Departman ekleme artık depo modülü üzerinden yönetiliyor */}
       </div>
 
       <div className="lg:col-span-3 space-y-4">
@@ -220,46 +279,36 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
                 </div>
               </div>
 
-              {isAdmin && activeDepartment && (
-                <form onSubmit={handleAddCategory} className="mt-3 border border-white/10 rounded-2xl p-3 bg-black/40 space-y-2">
-                  <h4 className="text-xs font-semibold text-white">
-                    {activeDepartment.name} için kategori
-                  </h4>
-                  <input
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Temizlik - Hijyen"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 outline-none"
-                    disabled={isSubmitting}
-                  />
-                  <input
-                    value={newCategoryDesc}
-                    onChange={(e) => setNewCategoryDesc(e.target.value)}
-                    placeholder="Açıklama (opsiyonel)"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 outline-none"
-                    disabled={isSubmitting}
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !newCategoryName.trim()}
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold py-2 rounded-xl transition-all disabled:opacity-50"
-                  >
-                    Kategori Ekle
-                  </button>
-                </form>
-              )}
+              {/* Kategori ekleme artık depo modülündeki filtre yönetimi üzerinden yapılır */}
             </div>
 
             <div className="flex-1">
               <div className="border border-white/10 rounded-2xl p-4 bg-black/40">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-white">
-                    {activeCategory ? activeCategory.name : 'Kategori seçin'}
-                  </h3>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">
+                      {activeCategory ? activeCategory.name : 'Kategori seçin'}
+                    </h3>
+                    {activeDepartment && activeCategory && (
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        {activeDepartment.name} › {activeCategory.name} › Ürünler
+                      </p>
+                    )}
+                  </div>
                   {activeCategory && (
-                    <span className="text-xs text-gray-400">
-                      Toplam ürün: {activeCategory.items.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="hidden sm:block text-[11px] text-gray-400">
+                        Toplam ürün: {activeCategory.items.length}
+                      </div>
+                      <div className="relative">
+                        <input
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Ürün ara..."
+                          className="w-40 sm:w-56 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:border-amber-500 outline-none placeholder:text-gray-500"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -278,17 +327,23 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
                       <div className="col-span-2 text-right">Sıra</div>
                     </div>
                     <div className="divide-y divide-white/5">
-                      {activeCategory.items.length === 0 && (
+                      {filteredItems.length === 0 && (
                         <div className="px-3 py-3 text-xs text-gray-400">
-                          Bu kategoride henüz ürün yok.
+                          Bu kategoride aramaya uygun ürün bulunamadı.
                         </div>
                       )}
-                      {activeCategory.items.map((item) => (
+                      {filteredItems.map((item) => (
                         <div
                           key={item.id}
                           className="grid grid-cols-12 items-center px-3 py-2 text-xs text-gray-100"
                         >
-                          <div className="col-span-5 truncate">{item.name}</div>
+                          <button
+                            type="button"
+                            onClick={() => setDetailItem(item)}
+                            className="col-span-5 text-left truncate hover:text-amber-200"
+                          >
+                            {item.name}
+                          </button>
                           <div className="col-span-3">
                             {item.photoUrl ? (
                               <img
@@ -303,10 +358,38 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
                           <div className="col-span-2 text-center">
                             {item.sizeLabel || '-'}
                           </div>
-                          <div className="col-span-2 text-right">
-                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px]">
+                          <div className="col-span-2 flex items-center justify-end gap-1">
+                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] mr-1">
                               {item.position}
                             </span>
+                            {isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(item.id, -1)}
+                                  disabled={isSubmitting}
+                                  className="px-1.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[11px] hover:bg-white/10 disabled:opacity-40"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(item.id, 1)}
+                                  disabled={isSubmitting}
+                                  className="px-1.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[11px] hover:bg-white/10 disabled:opacity-40"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item)}
+                                  disabled={isSubmitting}
+                                  className="px-1.5 py-1 rounded-lg border border-red-500/40 bg-red-500/10 text-[11px] text-red-300 hover:bg-red-500/20 disabled:opacity-40"
+                                >
+                                  Sil
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -364,7 +447,67 @@ export default function PhotoGalleryDashboard({ initialDepartments, user }) {
           </div>
         </div>
       </div>
+
+      {detailItem && (
+        <div className="fixed inset-0 z-[900] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">
+                  {activeDepartment ? activeDepartment.name : ''}{' '}
+                  {activeCategory ? `› ${activeCategory.name}` : ''}
+                </div>
+                <div className="text-lg font-semibold text-white">{detailItem.name}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailItem(null)}
+                className="text-gray-400 hover:text-white text-sm px-2 py-1 rounded-lg hover:bg-white/10"
+              >
+                Kapat
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                {detailItem.photoUrl ? (
+                  <img
+                    src={detailItem.photoUrl}
+                    alt={detailItem.name}
+                    className="w-full h-48 object-cover rounded-xl border border-white/10"
+                  />
+                ) : (
+                  <div className="w-full h-48 rounded-xl border border-dashed border-white/15 flex items-center justify-center text-xs text-gray-500">
+                    Fotoğraf eklenmemiş
+                  </div>
+                )}
+              </div>
+              <div className="md:col-span-2 space-y-3">
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  {detailItem.sizeLabel && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-200">
+                      {detailItem.sizeLabel}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-200">
+                    Pozisyon: {detailItem.position}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-200 whitespace-pre-line">
+                  {detailItem.description || 'Açıklama eklenmemiş.'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        open={confirmState.open}
+        title="Onay"
+        message={confirmState.message}
+        onCancel={closeConfirm}
+        onConfirm={confirmState.onConfirm}
+      />
     </div>
   )
 }
-

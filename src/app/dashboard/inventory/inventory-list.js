@@ -6,7 +6,7 @@ import InventoryRow from './inventory-row'
 import NewProductModal from './new-product-modal'
 import FilterManagementModal from './filter-management-modal'
 import InventoryLogModal from './inventory-log-modal'
-import { bulkDeleteProducts, getInventory, getFilterOptions, addCategory, addUnit, getInventoryCountSchedule, updateInventoryCountSchedule, createInventoryCountReportNow, getLatestStockReport, checkAndRunInventoryCountSchedule, getStockReports, getStockReportById, purgeDepartment } from '@/app/actions/inventory'
+import { bulkDeleteProducts, getInventory, getFilterOptions, addCategory, addUnit, getInventoryCountSchedule, updateInventoryCountSchedule, createInventoryCountReportNow, getLatestStockReport, checkAndRunInventoryCountSchedule, getStockReports, getStockReportById } from '@/app/actions/inventory'
 import { getSettings } from '@/app/actions/settings'
 import { useToast } from '@/app/providers/toast-provider'
 import ConfirmModal from '@/app/components/confirm-modal'
@@ -20,7 +20,6 @@ export default function InventoryList({ initialProducts, userRole }) {
     const [departmentFilter, setDepartmentFilter] = useState('all')
     const [categoryFilter, setCategoryFilter] = useState('all')
     const [unitFilter, setUnitFilter] = useState('all')
-    const [isPurging, setIsPurging] = useState(false)
     const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
     const [filterOptions, setFilterOptions] = useState({ categories: [], units: [] })
@@ -375,24 +374,6 @@ export default function InventoryList({ initialProducts, userRole }) {
             showToast('Hata: ' + error.message)
         } finally {
             setIsDeleting(false)
-        }
-    }
-
-    const handlePurgeSarf = async () => {
-        setIsPurging(true)
-        try {
-            const res = await purgeDepartment({ dept: 'Sarf Malzeme' })
-            if (res.success) {
-                await fetchFilters()
-                await fetchData()
-                showToast('Sarf Malzeme departmanı kaldırıldı.', 'success')
-            } else {
-                showToast(res.error || 'Departman kaldırılamadı.')
-            }
-        } catch (e) {
-            showToast(e.message || 'Departman kaldırılamadı.')
-        } finally {
-            setIsPurging(false)
         }
     }
 
@@ -772,16 +753,6 @@ export default function InventoryList({ initialProducts, userRole }) {
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                                     Yeni Ürün
                                 </button>
-                            {isAdmin && (
-                                <button
-                                    onClick={handlePurgeSarf}
-                                    disabled={isPurging}
-                                    className="px-4 py-2.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 rounded-xl text-sm transition-all flex items-center gap-2 disabled:opacity-50"
-                                >
-                                    <svg className={`w-4 h-4 ${isPurging ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v6m6-6v6M4 6h16M4 18h16" /></svg>
-                                    Sarf Malzeme’yi kaldır
-                                </button>
-                            )}
                             </div>
                         </div>
                     )}

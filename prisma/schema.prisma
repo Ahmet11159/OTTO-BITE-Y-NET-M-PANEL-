@@ -275,7 +275,6 @@ model GalleryCategory {
   position      Int               @default(0)
   departmentId  Int
   department    GalleryDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  inventoryCategoryName String?
   items         GalleryItem[]
 }
 
@@ -288,8 +287,6 @@ model GalleryItem {
   position    Int             @default(0)
   categoryId  Int
   category    GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  productId   Int?
-  product     Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }

@@ -37,8 +37,7 @@ const CreateItemSchema = z.object({
   name: z.string().min(1, 'Ürün adı zorunludur'),
   description: z.string().optional(),
   sizeLabel: z.string().optional(),
-  photoUrl: z.string().url('Geçerli bir URL girin').optional(),
-  productId: z.coerce.number().optional()
+  photoUrl: z.string().url('Geçerli bir URL girin').optional()
 })
 
 const UpdateItemSchema = z.object({
@@ -54,108 +53,9 @@ const IdSchema = z.object({
   id: z.coerce.number()
 })
 
-const ReorderItemsSchema = z.object({
-  categoryId: z.coerce.number(),
-  itemIds: z.array(z.coerce.number()).min(1)
-})
-
-async function ensureGallerySeededFromInventory() {
-  const existing = await prisma.galleryDepartment.count()
-  if (existing > 0) return
-
-  const categories = await prisma.category.findMany({
-    orderBy: { name: 'asc' }
-  })
-  const products = await prisma.product.findMany({
-    orderBy: { name: 'asc' }
-  })
-
-  if (categories.length === 0 && products.length === 0) return
-
-  const deptMap = new Map()
-
-  for (const cat of categories) {
-    const raw = cat.name || ''
-    if (!raw) continue
-    const parts = raw.split(' / ')
-    const deptName = parts[0]
-    if (!deptName) continue
-    if (!deptMap.has(deptName)) {
-      deptMap.set(deptName, { categories: new Map() })
-    }
-    if (parts.length > 1) {
-      const label = parts.slice(1).join(' / ')
-      deptMap.get(deptName).categories.set(raw, label)
-    }
-  }
-
-  let deptPos = 0
-  const deptIdByName = new Map()
-
-  for (const [deptName, meta] of deptMap.entries()) {
-    deptPos += 1
-    const dept = await prisma.galleryDepartment.create({
-      data: {
-        name: deptName,
-        position: deptPos
-      }
-    })
-    deptIdByName.set(deptName, dept.id)
-
-    let catPos = 0
-    for (const [fullName, label] of meta.categories.entries()) {
-      catPos += 1
-      await prisma.galleryCategory.create({
-        data: {
-          name: label,
-          description: null,
-          position: catPos,
-          departmentId: dept.id,
-          inventoryCategoryName: fullName
-        }
-      })
-    }
-  }
-
-  const galleryCategories = await prisma.galleryCategory.findMany()
-  const catByInventoryName = new Map(
-    galleryCategories
-      .filter(c => c.inventoryCategoryName)
-      .map(c => [c.inventoryCategoryName, c])
-  )
-
-  const counters = new Map()
-
-  for (const p of products) {
-    const catName = p.category || null
-    if (!catName) continue
-    const galleryCat = catByInventoryName.get(catName)
-    if (!galleryCat) continue
-
-    const key = galleryCat.id
-    const current = counters.get(key) || 0
-    const nextPos = current + 1
-    counters.set(key, nextPos)
-
-    await prisma.galleryItem.create({
-      data: {
-        name: p.name,
-        description: null,
-        sizeLabel: null,
-        photoUrl: null,
-        position: nextPos,
-        categoryId: galleryCat.id,
-        productId: p.id
-      }
-    })
-  }
-}
-
 export const getGalleryTree = safeAction(async () => {
   const session = await getSession()
   if (!session) throw new Error('Oturum gerekli.')
-
-  await ensureGallerySeededFromInventory()
 
   const departments = await prisma.galleryDepartment.findMany({
     orderBy: { position: 'asc' },
@@ -298,7 +198,6 @@ export const createItem = safeAction(async (data) => {
       sizeLabel: data.sizeLabel || null,
       photoUrl: data.photoUrl || null,
       categoryId: data.categoryId,
-      productId: data.productId || null,
       position: (maxPos._max.position || 0) + 1
     }
   })
@@ -345,22 +244,3 @@ export const deleteItem = safeAction(async (data) => {
   return { deleted: true }
 }, IdSchema)
 
-export const reorderItemsInCategory = safeAction(async (data) => {
-  const session = await getSession()
-  if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
-
-  const { categoryId, itemIds } = data
-
-  await prisma.$transaction(
-    itemIds.map((id, index) =>
-      prisma.galleryItem.update({
-        where: { id },
-        data: { position: index + 1 }
-      })
-    )
-  )
-
-  logger.info(`Gallery items reordered in category ${categoryId}`)
-  revalidatePath('/dashboard/gallery')
-  return { reordered: true }
-}, ReorderItemsSchema)

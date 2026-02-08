@@ -331,7 +331,7 @@ export const createProduct = safeAction(async (data) => {
 
     logger.info(`Creating product: ${name}`)
 
-  const product = await prisma.product.create({
+    const product = await prisma.product.create({
         data: {
             name,
             unit,
@@ -341,33 +341,6 @@ export const createProduct = safeAction(async (data) => {
             lastReset: new Date()
         }
     })
-
-  try {
-    if (category) {
-      const galleryCat = await prisma.galleryCategory.findFirst({
-        where: { inventoryCategoryName: category }
-      })
-      if (galleryCat) {
-        const maxPos = await prisma.galleryItem.aggregate({
-          where: { categoryId: galleryCat.id },
-          _max: { position: true }
-        })
-        await prisma.galleryItem.create({
-          data: {
-            name,
-            description: null,
-            sizeLabel: null,
-            photoUrl: null,
-            categoryId: galleryCat.id,
-            productId: product.id,
-            position: (maxPos._max.position || 0) + 1
-          }
-        })
-      }
-    }
-  } catch (e) {
-    logger.error('Failed to sync gallery items from inventory createProduct', e)
-  }
 
     await prisma.inventoryLog.create({
         data: {
@@ -626,55 +599,7 @@ export const addCategory = safeAction(async (data) => {
     if (!session || session.role !== 'ADMIN') throw new Error('Unauthorized')
     
     const { name } = data
-  const cat = await prisma.category.create({ data: { name } })
-
-  try {
-    const raw = name || ''
-    const parts = raw.split(' / ')
-    const deptName = parts[0]
-    if (deptName) {
-      let dept = await prisma.galleryDepartment.findFirst({
-        where: { name: deptName }
-      })
-      if (!dept) {
-        const maxDept = await prisma.galleryDepartment.aggregate({
-          _max: { position: true }
-        })
-        dept = await prisma.galleryDepartment.create({
-          data: {
-            name: deptName,
-            position: (maxDept._max.position || 0) + 1
-          }
-        })
-      }
-      if (parts.length > 1) {
-        const label = parts.slice(1).join(' / ')
-        const exists = await prisma.galleryCategory.findFirst({
-          where: {
-            departmentId: dept.id,
-            inventoryCategoryName: raw
-          }
-        })
-        if (!exists) {
-          const maxCat = await prisma.galleryCategory.aggregate({
-            where: { departmentId: dept.id },
-            _max: { position: true }
-          })
-          await prisma.galleryCategory.create({
-            data: {
-              name: label,
-              description: null,
-              departmentId: dept.id,
-              inventoryCategoryName: raw,
-              position: (maxCat._max.position || 0) + 1
-            }
-          })
-        }
-      }
-    }
-  } catch (e) {
-    logger.error('Failed to sync gallery categories from inventory addCategory', e)
-  }
+    const cat = await prisma.category.create({ data: { name } })
     revalidatePath('/dashboard/inventory')
     return cat
 }, CategorySchema)
@@ -710,11 +635,6 @@ export const updateCategoryMeta = safeAction(async (data) => {
     const updated = await prisma.category.update({
         where: { id },
         data: { name }
-    })
-
-    await prisma.galleryCategory.updateMany({
-        where: { inventoryCategoryName: oldName },
-        data: { inventoryCategoryName: name }
     })
 
     await prisma.product.updateMany({

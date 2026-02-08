@@ -52,7 +52,6 @@ model Product {
   startStock   Float    // Stock at month start
   currentStock Float    @default(0)
   lastReset    DateTime @default(now())
-  photoUrl     String?
   
   transactions StockTransaction[]
 }

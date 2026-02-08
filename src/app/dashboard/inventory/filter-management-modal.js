@@ -9,6 +9,7 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
     const [options, setOptions] = useState({ categories: [], units: [] })
     const [newCategory, setNewCategory] = useState('')
     const [newUnit, setNewUnit] = useState('')
+    const [newDepartment, setNewDepartment] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const { addToast } = useToast()
@@ -61,6 +62,38 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
             }
         } catch (err) {
             addToast(err.message || 'Kategori eklenemedi', 'error')
+            setError(err.message)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleAddDepartment = async (e) => {
+        e.preventDefault()
+        const name = newDepartment.trim()
+        if (!name) return
+        const lower = name.toLowerCase()
+        const existing = departments.map(d => d.toLowerCase())
+        if (existing.includes(lower)) {
+            setError('Bu isimde bir departman zaten var.')
+            addToast('Bu isimde bir departman zaten var.', 'error')
+            return
+        }
+        setIsLoading(true)
+        setError('')
+        try {
+            const res = await addCategory({ name })
+            if (res.success) {
+                setNewDepartment('')
+                await fetchOptions()
+                onUpdate()
+                addToast('Departman eklendi', 'success')
+            } else {
+                addToast(res.error || 'Departman eklenemedi', 'error')
+                setError(res.error)
+            }
+        } catch (err) {
+            addToast(err.message || 'Departman eklenemedi', 'error')
             setError(err.message)
         } finally {
             setIsLoading(false)
@@ -261,6 +294,23 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                         <h3 className="flex items-center gap-2 border-b border-gray-800 pb-2 text-sm font-bold uppercase tracking-widest text-purple-300">
                             Departmanlar
                         </h3>
+                        <form onSubmit={handleAddDepartment} className="mb-3 flex flex-col gap-2 sm:flex-row">
+                            <input
+                                type="text"
+                                value={newDepartment}
+                                onChange={(e) => setNewDepartment(e.target.value)}
+                                placeholder="Yeni departman..."
+                                className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white focus:border-gold focus:outline-none sm:flex-1"
+                                disabled={isLoading}
+                            />
+                            <button
+                                type="submit"
+                                disabled={isLoading || !newDepartment.trim()}
+                                className="w-full rounded-lg bg-gold px-3 py-2 text-xs font-bold text-black transition-all hover:bg-yellow-400 disabled:opacity-50 sm:w-auto"
+                            >
+                                Departman Ekle
+                            </button>
+                        </form>
                         <div className="flex flex-wrap gap-2">
                             <button
                                 type="button"

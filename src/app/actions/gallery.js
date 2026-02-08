@@ -74,23 +74,9 @@ async function ensureGallerySeededFromInventory() {
 
   const deptMap = new Map()
 
-  const rawNames = new Set()
-
   for (const cat of categories) {
     const raw = cat.name || ''
     if (!raw) continue
-    rawNames.add(raw)
-  }
-
-  for (const p of products) {
-    const raw = p.category || ''
-    if (!raw) continue
-    if (!rawNames.has(raw)) {
-      rawNames.add(raw)
-    }
-  }
-
-  for (const raw of rawNames) {
     const parts = raw.split(' / ')
     const deptName = parts[0]
     if (!deptName) continue
@@ -99,10 +85,7 @@ async function ensureGallerySeededFromInventory() {
     }
     if (parts.length > 1) {
       const label = parts.slice(1).join(' / ')
-      const meta = deptMap.get(deptName)
-      if (!meta.categories.has(raw)) {
-        meta.categories.set(raw, label)
-      }
+      deptMap.get(deptName).categories.set(raw, label)
     }
   }
 

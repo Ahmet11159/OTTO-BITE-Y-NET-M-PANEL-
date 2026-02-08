@@ -533,76 +533,6 @@ export const updateProduct = safeAction(async (data) => {
     })
     await notify('INVENTORY_PRODUCT_UPDATED', `"${name}" güncellendi.`, session.fullName, { link: '/dashboard/inventory' })
 
-    try {
-        const items = await prisma.galleryItem.findMany({
-            where: { productId: id }
-        })
-
-        for (const item of items) {
-            let targetCategoryId = item.categoryId
-
-            if (oldProduct.category !== category && category) {
-                const raw = category || ''
-                const parts = raw.split(' / ')
-                const deptName = parts[0]
-                if (deptName) {
-                    let dept = await prisma.galleryDepartment.findFirst({
-                        where: { name: deptName }
-                    })
-                    if (!dept) {
-                        const maxDept = await prisma.galleryDepartment.aggregate({
-                            _max: { position: true }
-                        })
-                        dept = await prisma.galleryDepartment.create({
-                            data: {
-                                name: deptName,
-                                position: (maxDept._max.position || 0) + 1
-                            }
-                        })
-                    }
-
-                    const label = parts.length > 1 ? parts.slice(1).join(' / ') : raw
-
-                    let galleryCat = await prisma.galleryCategory.findFirst({
-                        where: {
-                            departmentId: dept.id,
-                            inventoryCategoryName: raw
-                        }
-                    })
-
-                    if (!galleryCat) {
-                        const maxCat = await prisma.galleryCategory.aggregate({
-                            where: { departmentId: dept.id },
-                            _max: { position: true }
-                        })
-                        galleryCat = await prisma.galleryCategory.create({
-                            data: {
-                                name: label,
-                                description: null,
-                                departmentId: dept.id,
-                                inventoryCategoryName: raw,
-                                position: (maxCat._max.position || 0) + 1
-                            }
-                        })
-                    }
-
-                    targetCategoryId = galleryCat.id
-                }
-            }
-
-            await prisma.galleryItem.update({
-                where: { id: item.id },
-                data: {
-                    name,
-                    sizeLabel: unit,
-                    categoryId: targetCategoryId
-                }
-            })
-        }
-    } catch (e) {
-        logger.error('Failed to sync gallery items from inventory updateProduct', e)
-    }
-
     revalidatePath('/dashboard/inventory')
 }, UpdateProductSchema)
 
@@ -782,50 +712,10 @@ export const updateCategoryMeta = safeAction(async (data) => {
         data: { name }
     })
 
-    try {
-        const oldParts = (oldName || '').split(' / ')
-        const newParts = (name || '').split(' / ')
-        const oldDept = oldParts[0] || null
-        const newDept = newParts[0] || null
-        const newLabel = newParts.length > 1 ? newParts.slice(1).join(' / ') : name
-
-        const galleryCats = await prisma.galleryCategory.findMany({
-            where: { inventoryCategoryName: oldName }
-        })
-
-        for (const gc of galleryCats) {
-            let targetDeptId = gc.departmentId
-
-            if (newDept && newDept !== oldDept) {
-                let dept = await prisma.galleryDepartment.findFirst({
-                    where: { name: newDept }
-                })
-                if (!dept) {
-                    const maxDept = await prisma.galleryDepartment.aggregate({
-                        _max: { position: true }
-                    })
-                    dept = await prisma.galleryDepartment.create({
-                        data: {
-                            name: newDept,
-                            position: (maxDept._max.position || 0) + 1
-                        }
-                    })
-                }
-                targetDeptId = dept.id
-            }
-
-            await prisma.galleryCategory.update({
-                where: { id: gc.id },
-                data: {
-                    name: newLabel,
-                    departmentId: targetDeptId,
-                    inventoryCategoryName: name
-                }
-            })
-        }
-    } catch (e) {
-        logger.error('Failed to sync gallery categories from inventory updateCategoryMeta', e)
-    }
+    await prisma.galleryCategory.updateMany({
+        where: { inventoryCategoryName: oldName },
+        data: { inventoryCategoryName: name }
+    })
 
     await prisma.product.updateMany({
         where: { category: oldName },
@@ -917,14 +807,6 @@ export const deleteCategory = safeAction(async (data) => {
     if (usageCount > 0) throw new Error('Bu kategori kullanımda olduğu için silinemez.')
 
     await prisma.category.delete({ where: { id } })
-
-    try {
-        await prisma.galleryCategory.deleteMany({
-            where: { inventoryCategoryName: category.name }
-        })
-    } catch (e) {
-        logger.error('Failed to sync gallery categories from inventory deleteCategory', e)
-    }
 
     // Logging
     try {

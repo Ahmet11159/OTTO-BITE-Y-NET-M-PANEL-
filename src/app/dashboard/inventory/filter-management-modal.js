@@ -33,19 +33,22 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
             options.categories
                 .map(c => (c.name || '').split(' / ')[0])
                 .filter(Boolean)
+                .filter(d => d !== 'Yiyecek' && d !== 'İçecek' && d !== 'Sarf Malzeme')
         )
     ).sort()
 
     const handleAddCategory = async (e) => {
         e.preventDefault()
         if (!newCategory.trim()) return
+        if (selectedDept === 'all') {
+            setError('Önce bir departman seçin.')
+            addToast('Lütfen önce bir departman seçin.', 'error')
+            return
+        }
         setIsLoading(true)
         setError('')
         try {
-            let fullName = newCategory.trim()
-            if (selectedDept !== 'all' && selectedDept && !fullName.includes('/')) {
-                fullName = `${selectedDept} / ${fullName}`
-            }
+            const fullName = `${selectedDept} / ${newCategory.trim()}`
             const res = await addCategory({ name: fullName })
             if (res.success) {
                 setNewCategory('')
@@ -301,11 +304,11 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                             <h3 className="flex items-center gap-2 border-b border-gray-800 pb-2 text-sm font-bold uppercase tracking-widest text-gray-400">
                                 📁 Kategoriler
                             </h3>
-                            <form onSubmit={handleAddCategory} className="flex gap-2">
+                            <form onSubmit={handleAddCategory} className="flex flex-col gap-2 sm:flex-row">
                                 <select
                                     value={selectedDept}
                                     onChange={(e) => setSelectedDept(e.target.value)}
-                                    className="w-40 rounded-lg border border-gray-700 bg-black px-3 py-2 text-xs text-gray-200 focus:border-gold focus:outline-none"
+                                    className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-xs text-gray-200 focus:border-gold focus:outline-none sm:w-40"
                                     disabled={isLoading}
                                 >
                                     <option value="all">Departman seç</option>
@@ -319,14 +322,14 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                     type="text"
                                     value={newCategory}
                                     onChange={(e) => setNewCategory(e.target.value)}
-                                    placeholder={selectedDept !== 'all' ? 'Kategori adı...' : 'Departman / Kategori veya isim...'}
-                                    className="flex-1 rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white focus:border-gold focus:outline-none"
-                                    disabled={isLoading}
+                                    placeholder={selectedDept === 'all' ? 'Önce departman seçin' : 'Kategori adı...'}
+                                    className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white focus:border-gold focus:outline-none sm:flex-1"
+                                    disabled={isLoading || selectedDept === 'all'}
                                 />
                                 <button
                                     type="submit"
                                     disabled={isLoading || !newCategory.trim()}
-                                    className="rounded-lg bg-gold px-3 py-2 text-xs font-bold text-black transition-all hover:bg-yellow-400 disabled:opacity-50"
+                                    className="w-full rounded-lg bg-gold px-3 py-2 text-xs font-bold text-black transition-all hover:bg-yellow-400 disabled:opacity-50 sm:w-auto"
                                 >
                                     Ekle
                                 </button>
@@ -342,7 +345,7 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                         .map((cat) => (
                                             <div
                                                 key={cat.id}
-                                                className="group flex items-center justify-between rounded-lg border border-gray-800 bg-zinc-800/40 p-3 transition-all hover:border-gold/30 hover:bg-zinc-800/60"
+                                                className="group flex flex-col gap-2 rounded-lg border border-gray-800 bg-zinc-800/40 p-3 transition-all hover:border-gold/30 hover:bg-zinc-800/60 sm:flex-row sm:items-center sm:justify-between"
                                             >
                                                 {editingCategoryId === cat.id ? (
                                                     <>
@@ -376,7 +379,7 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <span className="text-sm font-medium text-white">{cat.name}</span>
+                                                        <span className="pr-2 text-sm font-medium text-white break-words">{cat.name}</span>
                                                         <div className="flex items-center gap-2">
                                                             <button
                                                                 type="button"
@@ -421,19 +424,19 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                             <h3 className="flex items-center gap-2 border-b border-gray-800 pb-2 text-sm font-bold uppercase tracking-widest text-gray-400">
                                 ⚖️ Birimler
                             </h3>
-                            <form onSubmit={handleAddUnit} className="flex gap-2">
+                            <form onSubmit={handleAddUnit} className="flex flex-col gap-2 sm:flex-row">
                                 <input
                                     type="text"
                                     value={newUnit}
                                     onChange={(e) => setNewUnit(e.target.value)}
                                     placeholder="Yeni birim..."
-                                    className="flex-1 rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white focus:border-gold focus:outline-none"
+                                    className="w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white focus:border-gold focus:outline-none sm:flex-1"
                                     disabled={isLoading}
                                 />
                                 <button
                                     type="submit"
                                     disabled={isLoading || !newUnit.trim()}
-                                    className="rounded-lg bg-gold px-3 py-2 text-xs font-bold text-black transition-all hover:bg-yellow-400 disabled:opacity-50"
+                                    className="w-full rounded-lg bg-gold px-3 py-2 text-xs font-bold text-black transition-all hover:bg-yellow-400 disabled:opacity-50 sm:w-auto"
                                 >
                                     Ekle
                                 </button>
@@ -443,7 +446,7 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                     options.units.map((unit) => (
                                         <div
                                             key={unit.id}
-                                            className="group flex items-center justify-between rounded-lg border border-gray-800 bg-zinc-800/40 p-3 transition-all hover:border-gold/30 hover:bg-zinc-800/60"
+                                            className="group flex flex-col gap-2 rounded-lg border border-gray-800 bg-zinc-800/40 p-3 transition-all hover:border-gold/30 hover:bg-zinc-800/60 sm:flex-row sm:items-center sm:justify-between"
                                         >
                                             {editingUnitId === unit.id ? (
                                                 <>
@@ -477,7 +480,7 @@ export default function FilterManagementModal({ onClose, onUpdate }) {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span className="text-sm font-medium text-white">{unit.name}</span>
+                                                    <span className="pr-2 text-sm font-medium text-white break-words">{unit.name}</span>
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             type="button"
